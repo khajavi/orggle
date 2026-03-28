@@ -1,0 +1,6 @@
+# orggle configuration
+
+toggl:
+  tag: orggle
+  rest_description: "Break Time"
+  default_project: Documentation
