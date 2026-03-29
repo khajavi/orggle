@@ -61,26 +61,25 @@ echo -e "$GREEN""✓ Config directory created at ~/.config/orggle$NC\n"
 # Create default config if it doesn't exist
 if not test -f ~/.config/orggle/config.yaml
     echo -e "$BLUE""Creating default configuration...$NC"
-    cat > ~/.config/orggle/config.yaml << 'EOFCONFIG'
-# orggle configuration - Multiple profile support
-
-# Default profile to use if --profile flag not specified
-default_profile: default
-
-# Global default tag (can be overridden per profile)
-tag: orggle
-
-# Define profiles here
-profiles:
-  default:
-    # API token can use ${ENV_VAR} syntax for environment variable substitution
-    api_token: ${TOGGL_API_TOKEN}
-    # tag: orggle  # Optional: override global tag
-    default_project: Documentation
-    org_mappings:
-      - pattern: "^\\s*- rest$"
-        description: "Break Time"
-EOFCONFIG
+    set config_file ~/.config/orggle/config.yaml
+    echo "# orggle configuration - Multiple profile support" > $config_file
+    echo "" >> $config_file
+    echo "# Default profile to use if --profile flag not specified" >> $config_file
+    echo "default_profile: default" >> $config_file
+    echo "" >> $config_file
+    echo "# Global default tag (can be overridden per profile)" >> $config_file
+    echo "tag: orggle" >> $config_file
+    echo "" >> $config_file
+    echo "# Define profiles here" >> $config_file
+    echo "profiles:" >> $config_file
+    echo "  default:" >> $config_file
+    echo "    # API token can use \${ENV_VAR} syntax for environment variable substitution" >> $config_file
+    echo "    api_token: \${TOGGL_API_TOKEN}" >> $config_file
+    echo "    # tag: orggle  # Optional: override global tag" >> $config_file
+    echo "    default_project: Documentation" >> $config_file
+    echo "    org_mappings:" >> $config_file
+    echo "      - pattern: \"^\\\\s*- rest\$\"" >> $config_file
+    echo "        description: \"Break Time\"" >> $config_file
     echo -e "$GREEN""✓ Created default config at ~/.config/orggle/config.yaml$NC\n"
 end
 
@@ -97,12 +96,11 @@ echo ""
 
 # Create wrapper script
 set -l WRAPPER "$INSTALL_DIR/orggle"
-cat > "$WRAPPER" << 'EOFWRAPPER'
-#!/usr/bin/env fish
+set wrapper_content '#!/usr/bin/env fish
 set SCRIPT_DIR (dirname (status filename))
 source "$SCRIPT_DIR/.venv/bin/activate.fish"
-python3 "$SCRIPT_DIR/orggle.py" $argv
-EOFWRAPPER
+python3 "$SCRIPT_DIR/orggle.py" $argv'
+echo "$wrapper_content" > "$WRAPPER"
 
 chmod +x "$WRAPPER"
 echo -e "$GREEN""✓ Created wrapper script: $WRAPPER$NC\n"
