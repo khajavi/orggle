@@ -549,7 +549,7 @@ def group_entries_by_day(entries: List[dict]) -> Dict[str, List[dict]]:
     return grouped
 
 
-def confirm_day(day: str, entries: list[dict]) -> str:
+def confirm_day(day: str, entries: List[dict]) -> str:
     """Ask user to confirm syncing all entries for a day. Returns 'y', 'n', or 'q'."""
     total_minutes = sum(e["duration"] // 60 for e in entries)
     hours = total_minutes // 60
