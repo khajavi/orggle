@@ -15,21 +15,64 @@ Sync org-mode clock entries to Toggl Track.
 
 ## Installation
 
+### Quick Setup (Recommended)
+
+Clone the repository and run the appropriate installation script:
+
+#### For bash/Linux/macOS:
+
+```bash
+git clone https://github.com/yourusername/orggle.git
+cd orggle
+chmod +x install.sh
+./install.sh
+```
+
+#### For fish shell:
+
+```fish
+git clone https://github.com/yourusername/orggle.git
+cd orggle
+chmod +x install.fish
+./install.fish
+```
+
+The installer will:
+1. Check for Python 3 and curl
+2. Create an isolated Python virtual environment (`.venv/`)
+3. Install dependencies (PyYAML - optional, falls back to JSON config if unavailable)
+4. Create an `orggle` wrapper script in the project directory
+5. Prompt you to set the API token
+
+### Manual Setup
+
+If you prefer not to use the installer:
+
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/orggle.git
 cd orggle
 
-# Install dependencies (optional, uses system curl by default)
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies (optional)
 pip install -r requirements.txt
 ```
 
 ## Configuration
 
-Set your Toggl API token:
+Set your Toggl API token as an environment variable:
 
 ```bash
 export TOGGL_API_TOKEN="your_api_token"
+```
+
+For fish shell:
+
+```fish
+set -gx TOGGL_API_TOKEN 'your_api_token'
 ```
 
 Optional: Set a proxy if needed:
@@ -53,14 +96,53 @@ toggl:
 
 Note: If PyYAML is not installed, the script will fall back to `config.json`.
 
+## Uninstallation
+
+To remove orggle and all associated files:
+
+#### For bash/Linux/macOS:
+
+```bash
+cd orggle
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+#### For fish shell:
+
+```fish
+cd orggle
+chmod +x uninstall.fish
+./uninstall.fish
+```
+
+The uninstaller will prompt you to remove:
+- Virtual environment (`.venv/`)
+- Wrapper script (`orggle`)
+- Local database (`~/.orggle.db`)
+
+You can answer `y` or `n` for each component.
+
 ## Usage
+
+After installation, you can run orggle using the wrapper script:
+
+```bash
+./orggle your-org-file.org
+```
+
+Or directly with Python:
+
+```bash
+python3 orggle.py your-org-file.org
+```
 
 ### Basic Sync
 
 Sync all clock entries from an org-mode file:
 
 ```bash
-python3 orggle.py your-org-file.org
+./orggle your-org-file.org
 ```
 
 ### Batch Mode (Daily)
@@ -68,7 +150,7 @@ python3 orggle.py your-org-file.org
 Use `--batch daily` to sync entries grouped by day. You'll confirm each day individually:
 
 ```bash
-python3 orggle.py your-org-file.org --batch daily
+./orggle your-org-file.org --batch daily
 ```
 
 ### Sync Specific Day
@@ -76,7 +158,7 @@ python3 orggle.py your-org-file.org --batch daily
 Sync entries for a specific day, ignoring previous sync status:
 
 ```bash
-python3 orggle.py your-org-file.org --day 2026-03-28
+./orggle your-org-file.org --day 2026-03-28
 ```
 
 ### Delete and Re-sync
@@ -84,7 +166,7 @@ python3 orggle.py your-org-file.org --day 2026-03-28
 Delete existing Toggl entries for a day before syncing:
 
 ```bash
-python3 orggle.py your-org-file.org --day 2026-03-28 --delete-existing
+./orggle your-org-file.org --day 2026-03-28 --delete-existing
 ```
 
 ### Delete Only
@@ -92,7 +174,7 @@ python3 orggle.py your-org-file.org --day 2026-03-28 --delete-existing
 Delete existing Toggl entries without syncing new ones:
 
 ```bash
-python3 orggle.py --day 2026-03-28 --delete-existing
+./orggle --day 2026-03-28 --delete-existing
 ```
 
 ## Options
@@ -163,16 +245,16 @@ CREATE TABLE entries (
 
 ```bash
 # Initial sync of all entries
-python3 orggle.py journal.org
+./orggle journal.org
 
 # Check what's new since last sync
-python3 orggle.py journal.org --batch daily
+./orggle journal.org --batch daily
 
 # Re-sync a specific day (will re-sync all entries for that day)
-python3 orggle.py journal.org --day 2026-03-28 --delete-existing
+./orggle journal.org --day 2026-03-28 --delete-existing
 
 # Just delete entries for a day without syncing
-python3 orggle.py --day 2026-03-28 --delete-existing
+./orggle --day 2026-03-28 --delete-existing
 ```
 
 ## Requirements
