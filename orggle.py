@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 __version__ = "0.1.0"
 
@@ -372,7 +372,7 @@ def get_project_id_by_name(api_token: str, workspace_id: int, proxies: dict, pro
     return retry_request(fetch)
 
 
-def get_entries_for_day(api_token: str, workspace_id: int, proxies: dict, day: str) -> list[dict]:
+def get_entries_for_day(api_token: str, workspace_id: int, proxies: dict, day: str) -> List[dict]:
     """Fetch time entries for a specific day from Toggl."""
     def fetch():
         from urllib.parse import quote
@@ -407,7 +407,7 @@ def delete_entry(api_token: str, workspace_id: int, proxies: dict, entry_id: int
     retry_request(fetch)
 
 
-def parse_org_file(filepath: str, org_mappings: list = None) -> list[dict]:
+def parse_org_file(filepath: str, org_mappings: list = None) -> List[dict]:
     """Parse CLOCK entries from org-mode file, latest first."""
     if org_mappings is None:
         org_mappings = []
@@ -538,7 +538,7 @@ def confirm_sync(entry: dict) -> str:
             return "q"
 
 
-def group_entries_by_day(entries: list[dict]) -> dict[str, list[dict]]:
+def group_entries_by_day(entries: List[dict]) -> Dict[str, List[dict]]:
     """Group entries by date (YYYY-MM-DD)."""
     grouped = {}
     for entry in entries:
