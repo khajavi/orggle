@@ -47,6 +47,27 @@ The installer will:
 5. Create an initial `config.yaml` with default profile
 6. Create an `orggle` wrapper script in the project directory
 7. Prompt you to set the API token
+8. Install fish shell completions (if fish is available)
+
+### Fish Shell Completions
+
+The installer automatically installs fish shell completions when you run `./install.fish` or `./install.sh` (if fish is installed). This provides intelligent tab-completion for orggle commands:
+
+```fish
+# Press TAB to auto-complete:
+orggle <TAB>              # Suggests .org files in current directory
+orggle --profile <TAB>    # Suggests available profiles from config
+orggle --batch <TAB>      # Suggests 'daily'
+orggle --day <TAB>        # Completes in YYYY-MM-DD format
+```
+
+The completion file is installed to: `~/.config/fish/completions/orggle.fish`
+
+To manually install completions if needed:
+```bash
+mkdir -p ~/.config/fish/completions
+cp completions.fish ~/.config/fish/completions/orggle.fish
+```
 
 ### Manual Setup
 
