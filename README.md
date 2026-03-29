@@ -24,7 +24,7 @@ Clone the repository and run the appropriate installation script:
 #### For bash/Linux/macOS:
 
 ```bash
-git clone https://github.com/yourusername/orggle.git
+git clone https://github.com/khajavi/orggle.git
 cd orggle
 chmod +x install.sh
 ./install.sh
@@ -33,7 +33,7 @@ chmod +x install.sh
 #### For fish shell:
 
 ```fish
-git clone https://github.com/yourusername/orggle.git
+git clone https://github.com/khajavi/orggle.git
 cd orggle
 chmod +x install.fish
 ./install.fish
@@ -54,7 +54,7 @@ If you prefer not to use the installer:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/orggle.git
+git clone https://github.com/khajavi/orggle.git
 cd orggle
 
 # Create virtual environment
