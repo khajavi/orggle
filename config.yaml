@@ -2,5 +2,8 @@
 
 toggl:
   tag: orggle
-  rest_description: "Break Time"
   default_project: Documentation
+
+org_mappings:
+  - pattern: "^\\s*- rest$"
+    description: "Break Time"

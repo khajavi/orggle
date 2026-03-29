@@ -26,29 +26,29 @@ def load_config() -> dict:
         try:
             import yaml
             with open(yaml_path, "r") as f:
-                data = yaml.safe_load(f)
-                return data.get("toggl", {}) if data else {}
+                return yaml.safe_load(f) or {}
         except ImportError:
             pass
     
     json_path = config_path / "config.json"
     if json_path.exists():
         with open(json_path, "r") as f:
-            data = json.load(f)
-            return data.get("toggl", {}) if data else {}
+            return json.load(f) or {}
     
     return {
-        "tag": "orggle",
-        "rest_description": "Break Time",
-        "default_project": "Documentation",
+        "toggl": {
+            "tag": "orggle",
+            "default_project": "Documentation",
+        },
+        "org_mappings": [],
     }
 
 
 CONFIG = load_config()
 
-TOGGL_TAG = CONFIG.get("tag", "orggle")
-REST_DESCRIPTION = CONFIG.get("rest_description", "Break Time")
-DEFAULT_PROJECT_NAME = CONFIG.get("default_project", "Documentation")
+TOGGL_TAG = CONFIG.get("toggl", {}).get("tag", "orggle")
+DEFAULT_PROJECT_NAME = CONFIG.get("toggl", {}).get("default_project", "Documentation")
+ORG_MAPPINGS = CONFIG.get("org_mappings", [])
 
 
 def init_db():
@@ -62,7 +62,6 @@ def init_db():
             start TEXT,
             stop TEXT,
             duration INTEGER,
-            is_rest INTEGER,
             published INTEGER DEFAULT 0,
             toggl_id TEXT,
             synced_at TEXT
@@ -74,7 +73,7 @@ def init_db():
 
 def hash_entry(entry: dict) -> str:
     """Generate a unique hash for an entry."""
-    key = f"{entry['start']}-{entry['stop']}-{entry['duration']}-{entry.get('is_rest', False)}"
+    key = f"{entry['start']}-{entry['stop']}-{entry['duration']}"
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
@@ -238,6 +237,16 @@ def parse_org_file(filepath: str) -> list[dict]:
 
     entries = []
     current_task = None
+    
+    mapping_patterns = []
+    for mapping in ORG_MAPPINGS:
+        pattern = mapping.get("pattern", "")
+        description = mapping.get("description", "")
+        if pattern and description:
+            try:
+                mapping_patterns.append((re.compile(pattern), description))
+            except re.error:
+                pass
 
     lines = content.split("\n")
     for i, line in enumerate(lines):
@@ -246,10 +255,12 @@ def parse_org_file(filepath: str) -> list[dict]:
             task_text = task_match.group(1).strip()
             current_task = re.sub(r"^(DONE|TODO|DOING|NEXT|WAITING|CANCELLED)\s+", "", task_text)
 
-        if line.strip().startswith("- rest"):
-            if entries:
-                last_entry = entries[-1]
-                last_entry["is_rest"] = True
+        for pattern, description in mapping_patterns:
+            if pattern.match(line):
+                if entries:
+                    last_entry = entries[-1]
+                    last_entry["description"] = description
+                break
 
         clock_match = re.search(
             r"CLOCK:\s+\[(\d{4}-\d{2}-\d{2})\s+(\w+)\s+(\d{2}:\d{2})\]\s*--\s*\[(\d{4}-\d{2}-\d{2})\s+(\w+)\s+(\d{2}:\d{2})\]\s*=>\s*(\d+):(\d{2})",
@@ -274,7 +285,6 @@ def parse_org_file(filepath: str) -> list[dict]:
                 "start": start_dt.isoformat(),
                 "stop": end_dt.isoformat(),
                 "duration": duration_minutes * 60,
-                "is_rest": False,
             }
             entries.append(entry)
 
@@ -286,7 +296,7 @@ def create_toggl_entry(entry: dict, api_token: str, workspace_id: int, proxies: 
     """Create a time entry in Toggl. Returns entry URL on success."""
     url = f"https://api.track.toggl.com/api/v9/workspaces/{workspace_id}/time_entries"
 
-    description = REST_DESCRIPTION if entry.get("is_rest") else entry["description"]
+    description = entry["description"]
 
     payload = {
         "description": description,
@@ -325,7 +335,7 @@ def create_toggl_entry(entry: dict, api_token: str, workspace_id: int, proxies: 
 
 def confirm_sync(entry: dict) -> str:
     """Ask user to confirm sync. Returns 'y', 'n', or 'q'."""
-    desc = entry["description"] if not entry["is_rest"] else REST_DESCRIPTION
+    desc = entry["description"]
     start = entry["start"][:16].replace("T", " ")
     stop = entry["stop"][:16].replace("T", " ")
     hours = entry["duration"] // 3600
@@ -366,7 +376,7 @@ def confirm_day(day: str, entries: list[dict]) -> str:
     print(f"Total work time: {hours}h {minutes:02d}m")
     print("Entries:")
     for e in entries:
-        desc = e["description"] if not e.get("is_rest") else REST_DESCRIPTION
+        desc = e["description"]
         start = e["start"][11:16]
         stop = e["stop"][11:16]
         dur_min = e["duration"] // 60
