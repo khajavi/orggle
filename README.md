@@ -69,6 +69,50 @@ mkdir -p ~/.config/fish/completions
 cp completions.fish ~/.config/fish/completions/orggle.fish
 ```
 
+### Nix Installation
+
+orggle can also be installed via Nix. The package supports both classic Nix and modern Nix with flakes.
+
+#### Option 1: Using Flakes (Recommended for Nix 2.4+)
+
+```bash
+# Run orggle directly without installation
+nix run github:khajavi/orggle
+
+# Or install to your profile
+nix profile install github:khajavi/orggle
+```
+
+#### Option 2: Using Classic Nix
+
+```bash
+# Build the package
+nix-build nix/default.nix
+
+# Run the built package
+./result/bin/orggle --version
+
+# Or install to your profile
+nix-env -f nix/default.nix -i
+```
+
+#### Option 3: Development Shell
+
+```bash
+# With flakes (Nix 2.4+)
+nix develop github:khajavi/orggle
+
+# Or with classic Nix
+nix-shell nix/shell.nix
+```
+
+#### Package Features
+
+The Nix package includes:
+- ✓ Python script with dependencies
+- ✓ Fish shell completions
+- ✓ Proper PATH setup
+
 ### Manual Setup
 
 If you prefer not to use the installer:
