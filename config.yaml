@@ -1,9 +1,37 @@
-# orggle configuration
+# orggle configuration - Multiple profile support
 
-toggl:
-  tag: orggle
-  default_project: Documentation
+# Default profile to use if --profile flag not specified
+default_profile: default
 
-org_mappings:
-  - pattern: "^\\s*- rest$"
-    description: "Break Time"
+# Global default tag (can be overridden per profile)
+tag: orggle
+
+# Define profiles here
+profiles:
+  default:
+    # API token can use ${ENV_VAR} syntax for environment variable substitution
+    api_token: ${TOGGL_API_TOKEN}
+    # tag: orggle  # Optional: override global tag
+    default_project: Documentation
+    org_mappings:
+      - pattern: "^\\s*- rest$"
+        description: "Break Time"
+
+  # Example of a second profile
+  # work:
+  #   api_token: ${WORK_TOGGL_TOKEN}
+  #   tag: work-time
+  #   default_project: Work
+  #   org_mappings:
+  #     - pattern: "^\\s*- rest$"
+  #       description: "Break Time"
+  #     - pattern: "^\\s*- meeting$"
+  #       description: "Meeting"
+  #
+  # personal:
+  #   api_token: ${PERSONAL_TOGGL_TOKEN}
+  #   tag: personal-time
+  #   default_project: Personal
+  #   org_mappings:
+  #     - pattern: "^\\s*- rest$"
+  #       description: "Leisure Time"

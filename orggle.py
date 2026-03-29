@@ -14,46 +14,219 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = os.path.expanduser("~/.orggle.db")
+# Global variables - will be set per profile
+DB_PATH = None
+TOGGL_TAG = None
+DEFAULT_PROJECT_NAME = None
+ORG_MAPPINGS = None
+
+
+def get_config_dir() -> Path:
+    """Return the config directory path, creating it if needed."""
+    config_dir = Path.home() / ".config" / "orggle"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir
+
+
+def get_config_path() -> Path:
+    """Return the config file path."""
+    return get_config_dir() / "config.yaml"
+
+
+def get_db_path(profile_name: str) -> Path:
+    """Return the database path for a given profile."""
+    return get_config_dir() / f"{profile_name}.db"
+
+
+def substitute_env_vars(value: str) -> str:
+    """Replace ${VAR_NAME} patterns with environment variable values."""
+    if not isinstance(value, str):
+        return value
+    
+    pattern = re.compile(r'\$\{([^}]+)\}')
+    
+    def replace_var(match):
+        var_name = match.group(1)
+        if var_name not in os.environ:
+            raise ValueError(f"Environment variable '{var_name}' not found")
+        return os.environ[var_name]
+    
+    return pattern.sub(replace_var, value)
+
+
+def is_old_config_format(config: dict) -> bool:
+    """Check if config uses old format (has 'toggl' key, no 'profiles' key)."""
+    return 'toggl' in config and 'profiles' not in config
+
+
+def migrate_old_config(config: dict) -> dict:
+    """Migrate old config format to new profile-based format."""
+    print("Warning: Migrating old config format to new profile-based format...")
+    
+    old_toggl = config.get("toggl", {})
+    old_mappings = config.get("org_mappings", [])
+    
+    new_config = {
+        "default_profile": "default",
+        "tag": old_toggl.get("tag", "orggle"),  # Global default tag
+        "profiles": {
+            "default": {
+                "api_token": "${TOGGL_API_TOKEN}",
+                "default_project": old_toggl.get("default_project", "Documentation"),
+            }
+        }
+    }
+    
+    # Add org_mappings if they exist
+    if old_mappings:
+        new_config["profiles"]["default"]["org_mappings"] = old_mappings
+    
+    print("Migration complete. Config has been updated.")
+    print("Note: Set TOGGL_API_TOKEN environment variable before running again.")
+    
+    return new_config
+
+
+def validate_profile(profile_config: dict, profile_name: str) -> bool:
+    """Validate that a profile has all required fields."""
+    required_fields = ["api_token", "default_project"]
+    
+    for field in required_fields:
+        if field not in profile_config:
+            raise ValueError(f"Profile '{profile_name}' missing required field '{field}'")
+        if not profile_config[field]:
+            raise ValueError(f"Profile '{profile_name}' has empty '{field}'")
+    
+    return True
+
+
+def load_profile_config(profile_name: str, full_config: dict) -> dict:
+    """Load and validate a specific profile, handling environment variable substitution."""
+    if "profiles" not in full_config or profile_name not in full_config["profiles"]:
+        available = ", ".join(full_config.get("profiles", {}).keys())
+        raise ValueError(f"Profile '{profile_name}' not found. Available profiles: {available}")
+    
+    profile_config = full_config["profiles"][profile_name].copy()
+    
+    # Substitute environment variables in api_token
+    try:
+        profile_config["api_token"] = substitute_env_vars(profile_config["api_token"])
+    except ValueError as e:
+        raise ValueError(f"In profile '{profile_name}': {e}")
+    
+    # Validate required fields
+    validate_profile(profile_config, profile_name)
+    
+    # Apply global defaults for optional fields
+    if "tag" not in profile_config and "tag" in full_config:
+        profile_config["tag"] = full_config["tag"]
+    
+    if "tag" not in profile_config:
+        profile_config["tag"] = "orggle"
+    
+    # Merge org_mappings with global defaults
+    if "org_mappings" not in profile_config and "org_mappings" in full_config:
+        profile_config["org_mappings"] = full_config["org_mappings"]
+    else:
+        profile_config["org_mappings"] = profile_config.get("org_mappings", [])
+    
+    return profile_config
+
+
+def get_profile_name(args: argparse.Namespace, config: dict) -> str:
+    """Resolve which profile to use: explicit flag -> default_profile."""
+    if hasattr(args, 'profile') and args.profile:
+        return args.profile
+    
+    if "default_profile" not in config:
+        raise ValueError(
+            "No default_profile defined in config. "
+            "Either set default_profile in ~/.config/orggle/config.yaml or use --profile flag"
+        )
+    
+    return config["default_profile"]
 
 
 def load_config() -> dict:
-    """Load configuration from config.yaml or config.json."""
-    config_path = Path(__file__).parent
+    """Load configuration from ~/.config/orggle/config.yaml or config.json."""
+    config_path = get_config_path()
     
-    yaml_path = config_path / "config.yaml"
-    if yaml_path.exists():
+    # Try to load from YAML first
+    if config_path.exists():
         try:
             import yaml
-            with open(yaml_path, "r") as f:
-                return yaml.safe_load(f) or {}
+            with open(config_path, "r") as f:
+                config = yaml.safe_load(f) or {}
+                
+                # Migrate old format if needed
+                if is_old_config_format(config):
+                    config = migrate_old_config(config)
+                
+                return config
         except ImportError:
             pass
+        except Exception as e:
+            print(f"Error loading config from {config_path}: {e}")
+            sys.exit(1)
     
-    json_path = config_path / "config.json"
+    # Try to load from JSON as fallback
+    json_path = config_path.parent / "config.json"
     if json_path.exists():
-        with open(json_path, "r") as f:
-            return json.load(f) or {}
+        try:
+            with open(json_path, "r") as f:
+                config = json.load(f) or {}
+                
+                # Migrate old format if needed
+                if is_old_config_format(config):
+                    config = migrate_old_config(config)
+                
+                return config
+        except Exception as e:
+            print(f"Error loading config from {json_path}: {e}")
+            sys.exit(1)
     
-    return {
-        "toggl": {
-            "tag": "orggle",
-            "default_project": "Documentation",
-        },
-        "org_mappings": [],
+    # Create default config if none exists
+    print(f"Config not found at {config_path}")
+    print("Creating default configuration...")
+    
+    config_dir = get_config_dir()
+    default_config = {
+        "default_profile": "default",
+        "tag": "orggle",
+        "profiles": {
+            "default": {
+                "api_token": "${TOGGL_API_TOKEN}",
+                "default_project": "Documentation",
+                "org_mappings": [
+                    {
+                        "pattern": "^\\s*- rest$",
+                        "description": "Break Time"
+                    }
+                ]
+            }
+        }
     }
+    
+    # Try to save the default config
+    try:
+        with open(config_path, "w") as f:
+            import yaml
+            yaml.dump(default_config, f, default_flow_style=False)
+            print(f"Created default config at {config_path}")
+    except ImportError:
+        # Fall back to JSON
+        json_path = config_dir / "config.json"
+        with open(json_path, "w") as f:
+            json.dump(default_config, f, indent=2)
+            print(f"Created default config at {json_path}")
+    
+    return default_config
 
 
-CONFIG = load_config()
-
-TOGGL_TAG = CONFIG.get("toggl", {}).get("tag", "orggle")
-DEFAULT_PROJECT_NAME = CONFIG.get("toggl", {}).get("default_project", "Documentation")
-ORG_MAPPINGS = CONFIG.get("org_mappings", [])
-
-
-def init_db():
-    """Initialize the SQLite database."""
-    conn = sqlite3.connect(DB_PATH)
+def init_db(profile_name: str):
+    """Initialize the SQLite database for a given profile."""
+    db_path = get_db_path(profile_name)
+    conn = sqlite3.connect(str(db_path))
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS entries (
@@ -77,9 +250,10 @@ def hash_entry(entry: dict) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
-def is_published(entry_hash: str) -> bool:
+def is_published(entry_hash: str, profile_name: str) -> bool:
     """Check if an entry is already published."""
-    conn = sqlite3.connect(DB_PATH)
+    db_path = get_db_path(profile_name)
+    conn = sqlite3.connect(str(db_path))
     c = conn.cursor()
     c.execute("SELECT published FROM entries WHERE hash = ?", (entry_hash,))
     row = c.fetchone()
@@ -87,9 +261,10 @@ def is_published(entry_hash: str) -> bool:
     return row is not None and row[0] == 1
 
 
-def mark_published(entry_hash: str, toggl_id: str):
+def mark_published(entry_hash: str, toggl_id: str, profile_name: str):
     """Mark an entry as published and store the Toggl ID."""
-    conn = sqlite3.connect(DB_PATH)
+    db_path = get_db_path(profile_name)
+    conn = sqlite3.connect(str(db_path))
     c = conn.cursor()
     c.execute("""
         INSERT INTO entries (hash, published, toggl_id, synced_at)
@@ -230,8 +405,11 @@ def delete_entry(api_token: str, workspace_id: int, proxies: dict, entry_id: int
     retry_request(fetch)
 
 
-def parse_org_file(filepath: str) -> list[dict]:
+def parse_org_file(filepath: str, org_mappings: list = None) -> list[dict]:
     """Parse CLOCK entries from org-mode file, latest first."""
+    if org_mappings is None:
+        org_mappings = []
+    
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -239,7 +417,7 @@ def parse_org_file(filepath: str) -> list[dict]:
     current_task = None
     
     mapping_patterns = []
-    for mapping in ORG_MAPPINGS:
+    for mapping in org_mappings:
         pattern = mapping.get("pattern", "")
         description = mapping.get("description", "")
         if pattern and description:
@@ -292,7 +470,7 @@ def parse_org_file(filepath: str) -> list[dict]:
     return entries
 
 
-def create_toggl_entry(entry: dict, api_token: str, workspace_id: int, proxies: dict, project_id: Optional[int] = None) -> Optional[str]:
+def create_toggl_entry(entry: dict, api_token: str, workspace_id: int, proxies: dict, project_id: Optional[int] = None, tag: str = None) -> Optional[str]:
     """Create a time entry in Toggl. Returns entry URL on success."""
     url = f"https://api.track.toggl.com/api/v9/workspaces/{workspace_id}/time_entries"
 
@@ -304,9 +482,12 @@ def create_toggl_entry(entry: dict, api_token: str, workspace_id: int, proxies: 
         "stop": entry["stop"],
         "duration": entry["duration"],
         "wid": workspace_id,
-        "tags": [TOGGL_TAG],
         "created_with": "orggle",
     }
+
+    # Only add tags if tag is provided and non-empty
+    if tag:
+        payload["tags"] = [tag]
 
     if project_id:
         payload["project_id"] = project_id
@@ -400,6 +581,7 @@ def confirm_day(day: str, entries: list[dict]) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Sync org-mode clock entries to Toggl")
     parser.add_argument("org_file", nargs="?", help="Path to org-mode file (optional with --delete-existing)")
+    parser.add_argument("--profile", type=str, default=None, help="Toggl profile to use (default from config)")
     parser.add_argument("--batch", choices=["daily"], help="Batch mode: 'daily' syncs all entries grouped by day")
     parser.add_argument("--day", help="Sync specific day (YYYY-MM-DD), ignores previous sync status")
     parser.add_argument("--delete-existing", action="store_true", help="Delete existing entries for --day before syncing")
@@ -413,13 +595,37 @@ def main():
             print("Error: --batch cannot be used with --delete-existing without org_file")
             sys.exit(1)
 
-    init_db()
-
-    api_token = os.environ.get("TOGGL_API_TOKEN")
-    if not api_token:
-        print("Error: TOGGL_API_TOKEN environment variable not set")
-        print("Run: export TOGGL_API_TOKEN='your_api_token'")
+    # Load full config
+    try:
+        full_config = load_config()
+    except Exception as e:
+        print(f"Error loading config: {e}")
         sys.exit(1)
+
+    # Resolve which profile to use
+    try:
+        profile_name = get_profile_name(args, full_config)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    # Load profile config
+    try:
+        profile_config = load_profile_config(profile_name, full_config)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    # Extract settings from profile
+    api_token = profile_config['api_token']
+    toggl_tag = profile_config.get('tag', 'orggle')
+    default_project_name = profile_config['default_project']
+    org_mappings = profile_config.get('org_mappings', [])
+
+    print(f"Using profile: {profile_name}")
+
+    # Initialize database for this profile
+    init_db(profile_name)
 
     proxies = get_proxies()
     if proxies:
@@ -433,12 +639,12 @@ def main():
         print(f"Error: {e}")
         sys.exit(1)
 
-    print(f"Looking up project '{DEFAULT_PROJECT_NAME}'...")
-    project_id = get_project_id_by_name(api_token, workspace_id, proxies, DEFAULT_PROJECT_NAME)
+    print(f"Looking up project '{default_project_name}'...")
+    project_id = get_project_id_by_name(api_token, workspace_id, proxies, default_project_name)
     if project_id:
         print(f"Using project ID: {project_id}")
     else:
-        print(f"Warning: Project '{DEFAULT_PROJECT_NAME}' not found, entries will be without project")
+        print(f"Warning: Project '{default_project_name}' not found, entries will be without project")
 
     if args.delete_existing and not args.org_file:
         print(f"Fetching existing entries for {args.day}...")
@@ -460,7 +666,7 @@ def main():
         sys.exit(1)
 
     print(f"Parsing {args.org_file}...")
-    entries = parse_org_file(args.org_file)
+    entries = parse_org_file(args.org_file, org_mappings)
 
     if not entries:
         print("No clock entries found.")
@@ -494,7 +700,7 @@ def main():
     else:
         for entry in entries:
             entry_hash = hash_entry(entry)
-            if is_published(entry_hash):
+            if is_published(entry_hash, profile_name):
                 already_synced += 1
             else:
                 new_entries.append(entry)
@@ -527,11 +733,11 @@ def main():
                 print("  Skipped\n")
             else:
                 for entry in day_entries:
-                    url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id)
+                    url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id, toggl_tag)
                     if url:
                         entry_hash = hash_entry(entry)
                         toggl_id = url.split("/")[-1]
-                        mark_published(entry_hash, toggl_id)
+                        mark_published(entry_hash, toggl_id, profile_name)
                         print(f"  ✓ Synced: {url}")
                         synced += 1
                     else:
@@ -549,11 +755,11 @@ def main():
                 skipped += 1
                 print("  Skipped\n")
             else:
-                url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id)
+                url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id, toggl_tag)
                 if url:
                     entry_hash = hash_entry(entry)
                     toggl_id = url.split("/")[-1]
-                    mark_published(entry_hash, toggl_id)
+                    mark_published(entry_hash, toggl_id, profile_name)
                     print(f"  ✓ Synced: {url}\n")
                     synced += 1
                 else:

@@ -53,6 +53,37 @@ if test -f "$INSTALL_DIR/requirements.txt"
 end
 echo -e "$GREEN""✓ Dependencies installed$NC\n"
 
+# Create config directory
+echo -e "$BLUE""Setting up config directory...$NC"
+mkdir -p ~/.config/orggle
+echo -e "$GREEN""✓ Config directory created at ~/.config/orggle$NC\n"
+
+# Create default config if it doesn't exist
+if not test -f ~/.config/orggle/config.yaml
+    echo -e "$BLUE""Creating default configuration...$NC"
+    cat > ~/.config/orggle/config.yaml << 'EOFCONFIG'
+# orggle configuration - Multiple profile support
+
+# Default profile to use if --profile flag not specified
+default_profile: default
+
+# Global default tag (can be overridden per profile)
+tag: orggle
+
+# Define profiles here
+profiles:
+  default:
+    # API token can use ${ENV_VAR} syntax for environment variable substitution
+    api_token: ${TOGGL_API_TOKEN}
+    # tag: orggle  # Optional: override global tag
+    default_project: Documentation
+    org_mappings:
+      - pattern: "^\\s*- rest$"
+        description: "Break Time"
+EOFCONFIG
+    echo -e "$GREEN""✓ Created default config at ~/.config/orggle/config.yaml$NC\n"
+end
+
 # Set API token
 echo -e "$BLUE""Configuration:$NC"
 if test -z "$TOGGL_API_TOKEN"
@@ -80,13 +111,13 @@ echo -e "$GREEN""✓ Created wrapper script: $WRAPPER$NC\n"
 echo -e "$BLUE""=== Installation Complete ===$NC\n"
 echo -e "Usage:"
 echo -e "  $GREEN""$WRAPPER <org_file>$NC"
-echo -e "  $GREEN""$WRAPPER <org_file> --batch daily$NC"
-echo -e "  $GREEN""$WRAPPER <org_file> --day 2026-03-28$NC\n"
+echo -e "  $GREEN""$WRAPPER <org_file> --profile work$NC"
+echo -e "  $GREEN""$WRAPPER <org_file> --batch daily$NC\n"
 
 echo -e "Before first use:"
 echo -e "  1. $BLUE""Set API token:$NC"
 echo -e "     set -gx TOGGL_API_TOKEN 'your_api_token'"
-echo -e "  2. $BLUE""(Optional) Edit config.yaml for custom mappings$NC"
+echo -e "  2. $BLUE""(Optional) Edit config at ~/.config/orggle/config.yaml to add more profiles$NC"
 echo -e "  3. $BLUE""Run the script:$NC"
 echo -e "     $WRAPPER your-org-file.org\n"
 
