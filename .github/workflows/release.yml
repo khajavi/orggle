@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., 0.1.0)"
+        required: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Extract version from tag or input
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref }}" 
+            VERSION="${VERSION#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes from CHANGELOG
+        id: release_notes
+        run: |
+          # Extract the release notes for this version from CHANGELOG.md
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Use awk to extract the section for this version
+          awk -v version="$VERSION" '
+            /^## \[/ {
+              if (found) exit
+              if ($0 ~ version) found = 1
+              else next
+              next
+            }
+            found { print }
+          ' CHANGELOG.md > release_notes.txt
+          
+          # If no notes found, use a default message
+          if [ ! -s release_notes.txt ]; then
+            echo "Release v$VERSION" > release_notes.txt
+          fi
+          
+          cat release_notes.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          body_path: release_notes.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify release created
+        run: |
+          echo "Release v${{ steps.version.outputs.version }} created successfully"

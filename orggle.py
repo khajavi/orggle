@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+__version__ = "0.1.0"
+
 # Global variables - will be set per profile
 DB_PATH = None
 TOGGL_TAG = None
@@ -580,6 +582,7 @@ def confirm_day(day: str, entries: list[dict]) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Sync org-mode clock entries to Toggl")
+    parser.add_argument("--version", action="version", version=f"orggle {__version__}")
     parser.add_argument("org_file", nargs="?", help="Path to org-mode file (optional with --delete-existing)")
     parser.add_argument("--profile", type=str, default=None, help="Toggl profile to use (default from config)")
     parser.add_argument("--batch", choices=["daily"], help="Batch mode: 'daily' syncs all entries grouped by day")
