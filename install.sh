@@ -108,6 +108,16 @@ EOF
 chmod +x "$WRAPPER"
 echo -e "${GREEN}✓ Created wrapper script: $WRAPPER${NC}\n"
 
+# Install fish completions
+echo -e "${BLUE}Installing fish shell completions...${NC}"
+mkdir -p ~/.config/fish/completions
+if [ -f "$INSTALL_DIR/completions.fish" ]; then
+    cp "$INSTALL_DIR/completions.fish" ~/.config/fish/completions/orggle.fish
+    echo -e "${GREEN}✓ Fish completions installed at ~/.config/fish/completions/orggle.fish${NC}\n"
+else
+    echo -e "${YELLOW}⚠ Warning: completions.fish not found (completions not installed)${NC}\n"
+fi
+
 # Summary
 echo -e "${BLUE}=== Installation Complete ===${NC}\n"
 echo -e "Usage:"

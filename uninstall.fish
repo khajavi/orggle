@@ -49,5 +49,15 @@ if test -f "$DB_PATH"
     end
 end
 
+# Check if fish completions exist
+if test -f ~/.config/fish/completions/orggle.fish
+    echo -e "$YELLOW""Found fish completions at ~/.config/fish/completions/orggle.fish$NC"
+    read -l -P "Remove fish completions? (y/n) " response
+    if test "$response" = "y" -o "$response" = "Y"
+        rm -f ~/.config/fish/completions/orggle.fish
+        echo -e "$GREEN""✓ Fish completions removed$NC\n"
+    end
+end
+
 echo -e "$BLUE""=== Uninstallation Complete ===$NC\n"
 echo -e "$GREEN""orggle has been uninstalled.$NC"
