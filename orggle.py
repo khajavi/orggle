@@ -12,7 +12,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Tuple
 
 __version__ = "0.1.0"
 
@@ -287,7 +287,7 @@ def get_proxies() -> dict:
     return proxies
 
 
-def curl_request(method: str, url: str, api_token: str, proxies: dict, data: Optional[dict] = None) -> tuple[int, dict]:
+def curl_request(method: str, url: str, api_token: str, proxies: dict, data: Optional[dict] = None) -> Tuple[int, dict]:
     """Make HTTP request using curl. Returns (status_code, response_json)."""
     cmd = ["curl", "-s", "-w", "\\n%{http_code}", "-X", method, "-u", f"{api_token}:api_token"]
     
