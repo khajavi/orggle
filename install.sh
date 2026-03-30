@@ -99,7 +99,7 @@ echo ""
 # Create wrapper script
 WRAPPER="$INSTALL_DIR/orggle"
 cat > "$WRAPPER" << 'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 # Get absolute path to the script's directory
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do
@@ -120,7 +120,9 @@ mkdir -p ~/.local/bin
 if [ -L ~/.local/bin/orggle ]; then
     rm ~/.local/bin/orggle
 fi
-ln -s "$WRAPPER" ~/.local/bin/orggle
+# Convert wrapper path to absolute path
+ABS_WRAPPER=$(cd "$(dirname "$WRAPPER")" && pwd)/$(basename "$WRAPPER")
+ln -s "$ABS_WRAPPER" ~/.local/bin/orggle
 echo -e "${GREEN}✓ Created symlink: ~/.local/bin/orggle (added to PATH)${NC}\n"
 
 # Install fish completions

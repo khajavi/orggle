@@ -125,7 +125,9 @@ set -l LINK ~/.local/bin/orggle
 if test -L "$LINK"
     rm "$LINK"
 end
-ln -s "$WRAPPER" "$LINK"
+# Convert wrapper path to absolute path
+set -l ABS_WRAPPER (cd (dirname "$WRAPPER") && pwd)/(basename "$WRAPPER")
+ln -s "$ABS_WRAPPER" "$LINK"
 echo -e "$GREEN""✓ Created symlink: $LINK (added to PATH)$NC\n"
 
 # Install fish completions
