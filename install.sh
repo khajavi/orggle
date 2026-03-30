@@ -100,7 +100,14 @@ echo ""
 WRAPPER="$INSTALL_DIR/orggle"
 cat > "$WRAPPER" << 'EOF'
 #!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get absolute path to the script's directory
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 source "$SCRIPT_DIR/.venv/bin/activate"
 python3 "$SCRIPT_DIR/orggle.py" "$@"
 EOF

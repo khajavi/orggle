@@ -97,7 +97,19 @@ echo ""
 # Create wrapper script
 set -l WRAPPER "$INSTALL_DIR/orggle"
 set wrapper_content '#!/usr/bin/env fish
-set SCRIPT_DIR (dirname (status filename))
+# Get the absolute path to the directory where this script is located
+set SCRIPT_PATH (status filename)
+if test -n "$SCRIPT_PATH"
+    # Resolve to absolute path
+    if not string match -q "/*" "$SCRIPT_PATH"
+        # It's a relative path, prepend current directory
+        set SCRIPT_PATH (pwd)/"$SCRIPT_PATH"
+    end
+    set SCRIPT_DIR (dirname "$SCRIPT_PATH")
+else
+    # Fallback to the install directory
+    set SCRIPT_DIR "$INSTALL_DIR"
+end
 source "$SCRIPT_DIR/.venv/bin/activate.fish"
 python3 "$SCRIPT_DIR/orggle.py" $argv'
 echo "$wrapper_content" > "$WRAPPER"
