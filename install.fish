@@ -102,6 +102,11 @@ set -l tmpfile (mktemp)
 echo '#!/usr/bin/env fish' >> $tmpfile
 echo 'set SCRIPT_PATH (status filename)' >> $tmpfile
 echo 'if test -n "$SCRIPT_PATH"' >> $tmpfile
+echo '    # Resolve symlinks to get the real directory' >> $tmpfile
+echo '    while test -L "$SCRIPT_PATH"' >> $tmpfile
+echo '        set SCRIPT_PATH (readlink "$SCRIPT_PATH")' >> $tmpfile
+echo '    end' >> $tmpfile
+echo '    # Convert to absolute path if needed' >> $tmpfile
 echo '    if not string match -q "/*" "$SCRIPT_PATH"' >> $tmpfile
 echo '        set SCRIPT_PATH (pwd)/"$SCRIPT_PATH"' >> $tmpfile
 echo '    end' >> $tmpfile
