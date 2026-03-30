@@ -119,6 +119,15 @@ rm $tmpfile
 chmod +x "$WRAPPER"
 echo -e "$GREEN""✓ Created wrapper script: $WRAPPER$NC\n"
 
+# Create symlink in ~/.local/bin for easy access
+mkdir -p ~/.local/bin
+set -l LINK ~/.local/bin/orggle
+if test -L "$LINK"
+    rm "$LINK"
+end
+ln -s "$WRAPPER" "$LINK"
+echo -e "$GREEN""✓ Created symlink: $LINK (added to PATH)$NC\n"
+
 # Install fish completions
 echo -e "$BLUE""Installing fish shell completions...$NC"
 mkdir -p ~/.config/fish/completions
@@ -132,16 +141,20 @@ end
 # Summary
 echo -e "$BLUE""=== Installation Complete ===$NC\n"
 echo -e "Usage:"
-echo -e "  $GREEN""$WRAPPER <org_file>$NC"
-echo -e "  $GREEN""$WRAPPER <org_file> --profile work$NC"
-echo -e "  $GREEN""$WRAPPER <org_file> --batch daily$NC\n"
+echo -e "  $GREEN""orggle <org_file>$NC"
+echo -e "  $GREEN""orggle <org_file> --profile work$NC"
+echo -e "  $GREEN""orggle <org_file> --batch daily$NC\n"
+
+echo -e "Make sure ~/.local/bin is in your PATH:"
+echo -e "  $BLUE""Add to ~/.config/fish/config.fish:$NC"
+echo -e "  $GREEN""fish_add_path ~/.local/bin$NC\n"
 
 echo -e "Before first use:"
 echo -e "  1. $BLUE""Set API token:$NC"
 echo -e "     set -gx TOGGL_API_TOKEN 'your_api_token'"
 echo -e "  2. $BLUE""(Optional) Edit config at ~/.config/orggle/config.yaml to add more profiles$NC"
 echo -e "  3. $BLUE""Run the script:$NC"
-echo -e "     $WRAPPER your-org-file.org\n"
+echo -e "     orggle your-org-file.org\n"
 
 deactivate
 echo -e "$GREEN""Ready to use!$NC"

@@ -41,6 +41,17 @@ if [ -f "$INSTALL_DIR/orggle" ]; then
     fi
 fi
 
+# Check if symlink exists in ~/.local/bin
+if [ -L ~/.local/bin/orggle ]; then
+    echo -e "${YELLOW}Found symlink at ~/.local/bin/orggle${NC}"
+    read -p "Remove symlink? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -f ~/.local/bin/orggle
+        echo -e "${GREEN}✓ Symlink removed${NC}\n"
+    fi
+fi
+
 # Check if database exists
 DB_PATH=~/.orggle.db
 if [ -f "$DB_PATH" ]; then

@@ -115,6 +115,14 @@ EOF
 chmod +x "$WRAPPER"
 echo -e "${GREEN}✓ Created wrapper script: $WRAPPER${NC}\n"
 
+# Create symlink in ~/.local/bin for easy access
+mkdir -p ~/.local/bin
+if [ -L ~/.local/bin/orggle ]; then
+    rm ~/.local/bin/orggle
+fi
+ln -s "$WRAPPER" ~/.local/bin/orggle
+echo -e "${GREEN}✓ Created symlink: ~/.local/bin/orggle (added to PATH)${NC}\n"
+
 # Install fish completions
 echo -e "${BLUE}Installing fish shell completions...${NC}"
 mkdir -p ~/.config/fish/completions
