@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 # Global variables - will be set per profile
 DB_PATH = None
