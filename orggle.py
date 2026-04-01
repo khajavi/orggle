@@ -554,7 +554,7 @@ def confirm_day(day: str, entries: List[dict]) -> str:
     total_minutes = sum(e["duration"] // 60 for e in entries)
     hours = total_minutes // 60
     minutes = total_minutes % 60
-    
+
     print(f"\n=== {day} ===")
     print(f"Total work time: {hours}h {minutes:02d}m")
     print("Entries:")
@@ -566,9 +566,9 @@ def confirm_day(day: str, entries: List[dict]) -> str:
         dur_hours = dur_min // 60
         dur_mins = dur_min % 60
         print(f"  - {start} to {stop} ({dur_hours}:{dur_mins:02d}): {desc}")
-    
+
     prompt = f"\nSync {len(entries)} entries for {day}? [Y/n/q]: "
-    
+
     while True:
         try:
             response = input(prompt).strip().lower()
@@ -580,15 +580,85 @@ def confirm_day(day: str, entries: List[dict]) -> str:
             return "q"
 
 
-def main():
+def validate_date(date_str: str) -> bool:
+    """Validate a date string is in YYYY-MM-DD format and is a valid date."""
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+        return True
+    except ValueError:
+        return False
+
+
+def validate_date_range(from_date: str, to_date: str) -> bool:
+    """Validate that from_date <= to_date."""
+    if not (validate_date(from_date) and validate_date(to_date)):
+        return False
+    from_dt = datetime.strptime(from_date, "%Y-%m-%d")
+    to_dt = datetime.strptime(to_date, "%Y-%m-%d")
+    return from_dt <= to_dt
+
+
+def filter_entries_by_date_range(entries: List[dict], from_date: str = None, to_date: str = None) -> List[dict]:
+    """
+    Filter entries to include only those within the specified date range.
+    Dates are inclusive and compared against the entry's start date.
+    Args:
+        entries: List of entry dictionaries with 'start' key in ISO format
+        from_date: Start date in YYYY-MM-DD format (inclusive), or None for no lower bound
+        to_date: End date in YYYY-MM-DD format (inclusive), or None for no upper bound
+    Returns:
+        Filtered list of entries
+    """
+    if from_date is None and to_date is None:
+        return entries
+
+    filtered = []
+    for entry in entries:
+        entry_date = entry["start"][:10]  # Extract YYYY-MM-DD from ISO timestamp
+
+        # Check lower bound
+        if from_date and entry_date < from_date:
+            continue
+
+        # Check upper bound
+        if to_date and entry_date > to_date:
+            continue
+
+        filtered.append(entry)
+
+    return filtered
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser."""
     parser = argparse.ArgumentParser(description="Sync org-mode clock entries to Toggl")
     parser.add_argument("--version", action="version", version=f"orggle {__version__}")
     parser.add_argument("org_file", nargs="?", help="Path to org-mode file (optional with --delete-existing)")
     parser.add_argument("--profile", type=str, default=None, help="Toggl profile to use (default from config)")
     parser.add_argument("--batch", choices=["daily"], help="Batch mode: 'daily' syncs all entries grouped by day")
     parser.add_argument("--day", help="Sync specific day (YYYY-MM-DD), ignores previous sync status")
+    parser.add_argument("--from", dest='from_date', help="Start date for range (YYYY-MM-DD)")
+    parser.add_argument("--to", dest='to_date', help="End date for range (YYYY-MM-DD)")
     parser.add_argument("--delete-existing", action="store_true", help="Delete existing entries for --day before syncing")
+    return parser
+
+
+def main():
+    parser = create_parser()
     args = parser.parse_args()
+
+    # Validate date arguments
+    if args.from_date and not validate_date(args.from_date):
+        print(f"Error: Invalid date format for --from: {args.from_date}. Use YYYY-MM-DD")
+        sys.exit(1)
+
+    if args.to_date and not validate_date(args.to_date):
+        print(f"Error: Invalid date format for --to: {args.to_date}. Use YYYY-MM-DD")
+        sys.exit(1)
+
+    if args.from_date and args.to_date and not validate_date_range(args.from_date, args.to_date):
+        print(f"Error: --from date ({args.from_date}) must be before or equal to --to date ({args.to_date})")
+        sys.exit(1)
 
     if args.delete_existing and not args.org_file:
         if not args.day:
@@ -681,6 +751,14 @@ def main():
             print(f"No entries found for {args.day}.")
             sys.exit(0)
         print(f"Filtering to day: {args.day}\n")
+    elif args.from_date or args.to_date:
+        entries = filter_entries_by_date_range(entries, args.from_date, args.to_date)
+        if not entries:
+            range_desc = f"{args.from_date or '...'} to {args.to_date or '...'}"
+            print(f"No entries found in date range {range_desc}.")
+            sys.exit(0)
+        print(f"Filtering to date range: {args.from_date or '...'} to {args.to_date or '...'}\n")
+
 
     if args.day and args.delete_existing:
         print(f"Fetching existing entries for {args.day}...")
@@ -698,7 +776,8 @@ def main():
 
     new_entries = []
     already_synced = 0
-    if args.day:
+    if args.day or args.from_date or args.to_date:
+        # When filtering by date, re-sync all entries in the filtered set
         new_entries = entries
     else:
         for entry in entries:
