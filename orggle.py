@@ -651,6 +651,31 @@ def should_resync_all(args) -> bool:
     return bool(args.day or args.from_date or args.to_date)
 
 
+def confirm_delete(count: int, date_desc: str) -> bool:
+    """Prompt user to confirm deletion of existing Toggl entries.
+
+    Args:
+        count: Number of entries to delete
+        date_desc: Human-readable date range or day description
+
+    Returns:
+        True if user confirmed by typing "DELETE {count}", False otherwise
+    """
+    if not sys.stdin.isatty():
+        print("Error: --delete-existing requires an interactive terminal for confirmation.")
+        sys.exit(1)
+
+    print(f"\n⚠️  WARNING: This will delete {count} existing Toggl entries")
+    print(f"   Date range: {date_desc}")
+    print(f"   Type 'DELETE {count}' to confirm, or any other input to cancel: ", end="", flush=True)
+    try:
+        response = input().strip()
+        return response == f"DELETE {count}"
+    except (EOFError, KeyboardInterrupt):
+        print()  # newline after ^C or EOF
+        return False
+
+
 def main():
     parser = create_parser()
     args = parser.parse_args()
@@ -834,7 +859,11 @@ def main():
         print(f"Fetching existing entries for {args.day}...")
         existing = get_entries_for_day(api_token, workspace_id, proxies, args.day)
         if existing:
-            print(f"Found {len(existing)} existing entries, deleting...")
+            # Require confirmation before deletion
+            if not confirm_delete(len(existing), f"{args.day} (single day)"):
+                print("Deletion cancelled.")
+                sys.exit(0)
+            print(f"Deleting {len(existing)} entries...")
             for entry in existing:
                 entry_id = entry.get("id")
                 if entry_id:
@@ -875,7 +904,11 @@ def main():
         print(f"Fetching existing entries for {args.day}...")
         existing = get_entries_for_day(api_token, workspace_id, proxies, args.day)
         if existing:
-            print(f"Found {len(existing)} existing entries, deleting...")
+            # Require confirmation before deletion
+            if not confirm_delete(len(existing), f"{args.day} (single day)"):
+                print("Deletion cancelled.")
+                sys.exit(0)
+            print(f"Deleting {len(existing)} entries...")
             for entry in existing:
                 entry_id = entry.get("id")
                 if entry_id:
