@@ -310,6 +310,23 @@ Day: 2026-03-28 (2 entries, 5:00 total)
 ...
 ```
 
+### Preview Changes (Dry Run)
+
+See what would be synced without actually making any changes to Toggl:
+
+```bash
+./orggle journal.org --from 2026-03-01 --to 2026-03-15 --dry-run
+```
+
+This parses your org file, applies all filters (date range, batch mode, etc.), and shows exactly which entries would be uploaded, along with total duration. No API calls are made and nothing is changed in Toggl.
+
+Useful for:
+- Verifying date ranges before bulk sync
+- Testing filters and `org_mappings` configuration
+- Checking what entries are about to be synced
+
+Note: `--dry-run` cannot be combined with `--delete-existing`.
+
 ### Sync Specific Day
 
 Sync entries for a specific day, ignoring previous sync status:
@@ -369,7 +386,7 @@ Delete existing entries without syncing new ones:
 ### All Options
 
 ```
-usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [org_file]
+usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [--dry-run] [org_file]
 
 Sync org-mode clock entries to Toggl
 
@@ -384,6 +401,7 @@ optional arguments:
   --from FROM_DATE      Start date for range (YYYY-MM-DD, inclusive)
   --to TO_DATE          End date for range (YYYY-MM-DD, inclusive)
   --delete-existing     Delete existing entries for --day/--range before syncing
+  --dry-run             Preview what would be synced without making API calls
 ```
 
 ## How It Works

@@ -141,6 +141,68 @@ def test_day_and_from_are_mutually_exclusive():
     assert result.returncode == 1
     assert "Error: --day cannot be used with --from or --to" in result.stderr or "Error: --day cannot be used with --from or --to" in result.stdout
 
+
+def test_dry_run_flag_parsed():
+    """Test that --dry-run flag is correctly parsed."""
+    parser = orggle.create_parser()
+    args = parser.parse_args(["journal.org", "--dry-run"])
+    assert args.dry_run == True
+    # Also ensure default is False
+    args2 = parser.parse_args(["journal.org"])
+    assert args2.dry_run == False
+
+
+def test_dry_run_conflict_with_delete_existing():
+    """Test that --dry-run cannot be used with --delete-existing."""
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, "orggle.py", "test.org", "--dry-run", "--delete-existing"],
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 1
+    assert "--dry-run cannot be used with --delete-existing" in result.stderr or "--dry-run cannot be used with --delete-existing" in result.stdout
+
+
+def test_dry_run_preview_output():
+    """Test that --dry-run produces expected output without making API calls."""
+    import subprocess
+    import os
+    # Create a temporary org file with known entries
+    test_org_content = """* TODO Test task A
+  CLOCK: [2026-03-28 Sat 09:00]--[2026-03-28 Sat 10:00] => 1:00
+
+* TODO Test task B
+  CLOCK: [2026-03-28 Sat 11:00]--[2026-03-28 Sat 12:00] => 1:00
+"""
+    test_org_path = Path("test_dry_run_sample.org")
+    try:
+        test_org_path.write_text(test_org_content)
+        # Run with dry-run
+        result = subprocess.run(
+            [sys.executable, "orggle.py", str(test_org_path), "--dry-run"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "TOGGL_API_TOKEN": "dummy"}  # Provide dummy token to pass config validation (if needed)
+        )
+        # Should exit 0
+        assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        # Output should contain "DRY RUN"
+        assert "DRY RUN" in result.stdout or "DRY RUN" in result.stderr
+        # Should mention both entries
+        assert "Test task A" in result.stdout or "Test task A" in result.stderr
+        assert "Test task B" in result.stdout or "Test task B" in result.stderr
+        # Should show total duration 2h? Actually 1h + 1h = 2h
+        # Check "2h" or "120m" etc.
+        assert ("2h" in result.stdout or "120m" in result.stdout) or ("2h" in result.stderr or "120m" in result.stderr)
+        # Should NOT contain "Synced:" or network消息
+        assert "API" not in result.stdout and "API" not in result.stderr
+    finally:
+        if test_org_path.exists():
+            test_org_path.unlink()
+
+
 if __name__ == "__main__":
     # Run all tests
     test_functions = [
@@ -153,6 +215,9 @@ if __name__ == "__main__":
         test_filter_entries_inclusive_bounds,
         test_should_resync_all,
         test_day_and_from_are_mutually_exclusive,
+        test_dry_run_flag_parsed,
+        test_dry_run_conflict_with_delete_existing,
+        test_dry_run_preview_output,
     ]
     failed = 0
     for test in test_functions:

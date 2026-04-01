@@ -642,6 +642,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--to", dest='to_date',
         help="End date for range (YYYY-MM-DD, inclusive)")
     parser.add_argument("--delete-existing", action="store_true", help="Delete existing entries for --day before syncing")
+    parser.add_argument("--dry-run", action="store_true", help="Preview what would be synced without making any API calls")
     return parser
 
 
@@ -670,6 +671,12 @@ def main():
     # Check mutual exclusivity between --day and --from/--to
     if args.day and (args.from_date or args.to_date):
         print("Error: --day cannot be used with --from or --to. Use one date filter at a time.")
+        sys.exit(1)
+
+    # Check mutual exclusivity between --dry-run and --delete-existing
+    if args.dry_run and args.delete_existing:
+        print("Error: --dry-run cannot be used with --delete-existing.")
+        print("(Use --dry-run first to preview, then run without it to actually delete and sync)")
         sys.exit(1)
 
     if args.delete_existing and not args.org_file:
@@ -711,6 +718,98 @@ def main():
 
     # Initialize database for this profile
     init_db(profile_name)
+
+    # Handle dry-run mode: preview without API calls
+    if args.dry_run:
+        # Validate org_file
+        if not args.org_file:
+            print("Error: org_file is required when using --dry-run")
+            sys.exit(1)
+        if not os.path.isfile(args.org_file):
+            print(f"Error: File not found: {args.org_file}")
+            sys.exit(1)
+
+        # Parse org file
+        print(f"Parsing {args.org_file}...")
+        entries = parse_org_file(args.org_file, org_mappings)
+
+        if not entries:
+            print("No clock entries found.")
+            sys.exit(0)
+
+        # Apply date filters
+        if args.day:
+            entries = [e for e in entries if e["start"].startswith(args.day)]
+            if not entries:
+                print(f"No entries found for {args.day}.")
+                sys.exit(0)
+            print(f"Filtering to day: {args.day}\n")
+        elif args.from_date or args.to_date:
+            entries = filter_entries_by_date_range(entries, args.from_date, args.to_date)
+            if not entries:
+                range_desc = f"{args.from_date or '...'} to {args.to_date or '...'}"
+                print(f"No entries found in date range {range_desc}.")
+                sys.exit(0)
+            print(f"Filtering to date range: {args.from_date or '...'} to {args.to_date or '...'}\n")
+
+        # Determine which entries would be synced vs skipped (already published)
+        would_sync = []
+        would_skip = []
+        for entry in entries:
+            entry_hash = hash_entry(entry)
+            if is_published(entry_hash, profile_name):
+                would_skip.append(entry)
+            else:
+                would_sync.append(entry)
+
+        # Display results
+        print("\n" + "="*40)
+        print("DRY RUN - No changes will be made")
+        print("="*40)
+
+        if args.batch == "daily":
+            # Group would_sync by day
+            grouped = group_entries_by_day(would_sync)
+            total_duration_sec = sum(e["duration"] for e in would_sync)
+            total_duration_mins = total_duration_sec // 60
+            print(f"Would sync {len(would_sync)} entries across {len(grouped)} day(s):\n")
+            for day in sorted(grouped.keys(), reverse=True):
+                day_entries = grouped[day]
+                day_duration_sec = sum(e["duration"] for e in day_entries)
+                day_duration_mins = day_duration_sec // 60
+                print(f"Day {day} ({len(day_entries)} entries, {day_duration_mins//60}h {day_duration_mins%60}m):")
+                for e in day_entries:
+                    mins = e["duration"] // 60
+                    desc = e['description'][:60]
+                    print(f"  - {desc} ({mins}m)")
+                print()
+
+            if would_skip:
+                skip_grouped = group_entries_by_day(would_skip)
+                print(f"Would skip {len(would_skip)} entries (already synced) across {len(skip_grouped)} day(s):")
+                for day in sorted(skip_grouped.keys(), reverse=True):
+                    print(f"  {day}: {len(skip_grouped[day])} entries")
+                print()
+        else:
+            # Interactive mode: flat list
+            total_duration_sec = sum(e["duration"] for e in would_sync)
+            total_duration_mins = total_duration_sec // 60
+            print(f"Would sync {len(would_sync)} entries:\n")
+            for entry in would_sync:
+                mins = entry["duration"] // 60
+                desc = entry['description'][:60]
+                print(f"  {entry['start'][:10]}: {desc} ({mins}m)")
+            print()
+            if would_skip:
+                print(f"Would skip {len(would_skip)} entries (already synced):")
+                for entry in would_skip:
+                    print(f"  {entry['start'][:10]}: {entry['description'][:60]}")
+                print()
+
+        print("="*40)
+        print(f"Total duration to sync: {total_duration_mins//60}h {total_duration_mins%60}m")
+        print("(No API calls were made)")
+        sys.exit(0)
 
     proxies = get_proxies()
     if proxies:

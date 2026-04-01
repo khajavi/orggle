@@ -43,6 +43,9 @@ complete -c orggle -l to -x -d "End date for range (YYYY-MM-DD, inclusive)"
 # Delete existing flag
 complete -c orggle -l delete-existing -f -d "Delete existing Toggl entries for specified day/range before syncing"
 
+# Dry-run flag
+complete -c orggle -l dry-run -f -d "Preview what would be synced without making any API calls"
+
 # Combination help: --day with --delete-existing
 complete -c orggle -n "__fish_seen_subcommand_from --day" -l delete-existing -f -d "Delete existing entries for this day before syncing"
 
