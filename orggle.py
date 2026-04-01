@@ -637,10 +637,17 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", type=str, default=None, help="Toggl profile to use (default from config)")
     parser.add_argument("--batch", choices=["daily"], help="Batch mode: 'daily' syncs all entries grouped by day")
     parser.add_argument("--day", help="Sync specific day (YYYY-MM-DD), ignores previous sync status")
-    parser.add_argument("--from", dest='from_date', help="Start date for range (YYYY-MM-DD)")
-    parser.add_argument("--to", dest='to_date', help="End date for range (YYYY-MM-DD)")
+    parser.add_argument("--from", dest='from_date',
+        help="Start date for range (YYYY-MM-DD, inclusive)")
+    parser.add_argument("--to", dest='to_date',
+        help="End date for range (YYYY-MM-DD, inclusive)")
     parser.add_argument("--delete-existing", action="store_true", help="Delete existing entries for --day before syncing")
     return parser
+
+
+def should_resync_all(args) -> bool:
+    """Determine if we should re-sync all entries (skipping already-synced check)."""
+    return bool(args.day or args.from_date or args.to_date)
 
 
 def main():
@@ -658,6 +665,11 @@ def main():
 
     if args.from_date and args.to_date and not validate_date_range(args.from_date, args.to_date):
         print(f"Error: --from date ({args.from_date}) must be before or equal to --to date ({args.to_date})")
+        sys.exit(1)
+
+    # Check mutual exclusivity between --day and --from/--to
+    if args.day and (args.from_date or args.to_date):
+        print("Error: --day cannot be used with --from or --to. Use one date filter at a time.")
         sys.exit(1)
 
     if args.delete_existing and not args.org_file:
@@ -776,7 +788,7 @@ def main():
 
     new_entries = []
     already_synced = 0
-    if args.day or args.from_date or args.to_date:
+    if should_resync_all(args):
         # When filtering by date, re-sync all entries in the filtered set
         new_entries = entries
     else:

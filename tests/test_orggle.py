@@ -81,6 +81,66 @@ def test_filter_entries_inclusive_bounds():
     result = orggle.filter_entries_by_date_range(entries, from_date="2026-03-15", to_date="2026-03-15")
     assert len(result) == 1
 
+def test_should_resync_all():
+    """Test the should_resync_all decision logic."""
+    class Args:
+        pass
+
+    args = Args()
+
+    # With --day only
+    args.day = "2026-03-28"
+    args.from_date = None
+    args.to_date = None
+    assert orggle.should_resync_all(args) == True
+
+    # With --from only
+    args.day = None
+    args.from_date = "2026-03-01"
+    args.to_date = None
+    assert orggle.should_resync_all(args) == True
+
+    # With --to only
+    args.day = None
+    args.from_date = None
+    args.to_date = "2026-03-31"
+    assert orggle.should_resync_all(args) == True
+
+    # With both --from and --to
+    args.day = None
+    args.from_date = "2026-03-01"
+    args.to_date = "2026-03-31"
+    assert orggle.should_resync_all(args) == True
+
+    # With none
+    args.day = None
+    args.from_date = None
+    args.to_date = None
+    assert orggle.should_resync_all(args) == False
+
+def test_day_and_from_are_mutually_exclusive():
+    """Test that using --day with --from or --to results in error."""
+    import subprocess
+    import sys
+
+    # Test --day with --from
+    result = subprocess.run(
+        [sys.executable, "orggle.py", "test.org", "--day", "2026-03-28", "--from", "2026-03-01"],
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 1
+    assert "Error: --day cannot be used with --from or --to" in result.stderr or "Error: --day cannot be used with --from or --to" in result.stdout
+
+    # Test --day with --to
+    result = subprocess.run(
+        [sys.executable, "orggle.py", "test.org", "--day", "2026-03-28", "--to", "2026-03-31"],
+        capture_output=True,
+        text=True
+    )
+    assert result.returncode == 1
+    assert "Error: --day cannot be used with --from or --to" in result.stderr or "Error: --day cannot be used with --from or --to" in result.stdout
+
 if __name__ == "__main__":
     # Run all tests
     test_functions = [
@@ -91,6 +151,8 @@ if __name__ == "__main__":
         test_validate_date_range,
         test_filter_entries_by_date_range,
         test_filter_entries_inclusive_bounds,
+        test_should_resync_all,
+        test_day_and_from_are_mutually_exclusive,
     ]
     failed = 0
     for test in test_functions:
