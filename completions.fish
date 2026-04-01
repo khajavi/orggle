@@ -34,8 +34,14 @@ complete -c orggle -l batch -x -f -d "Batch mode: 'daily' syncs all entries grou
 # Day option (YYYY-MM-DD format)
 complete -c orggle -l day -x -d "Sync specific day (format: YYYY-MM-DD). Ignores previous sync status"
 
+# From option (YYYY-MM-DD format, inclusive)
+complete -c orggle -l from -x -d "Start date for range (YYYY-MM-DD, inclusive)"
+
+# To option (YYYY-MM-DD format, inclusive)
+complete -c orggle -l to -x -d "End date for range (YYYY-MM-DD, inclusive)"
+
 # Delete existing flag
-complete -c orggle -l delete-existing -f -d "Delete existing Toggl entries for specified day before syncing"
+complete -c orggle -l delete-existing -f -d "Delete existing Toggl entries for specified day/range before syncing"
 
 # Combination help: --day with --delete-existing
 complete -c orggle -n "__fish_seen_subcommand_from --day" -l delete-existing -f -d "Delete existing entries for this day before syncing"

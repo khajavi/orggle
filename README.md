@@ -330,6 +330,34 @@ Delete existing Toggl entries for a day before syncing:
 
 Useful for correcting mistakes or updating entries.
 
+### Sync Date Range
+
+Sync entries within a specific date range:
+
+```bash
+./orggle journal.org --from 2026-03-01 --to 2026-03-15
+```
+
+This syncs all entries from March 1st through March 15th inclusive.
+
+Use with `--delete-existing` to replace entries in the range:
+
+```bash
+./orggle journal.org --from 2026-03-01 --to 2026-03-15 --delete-existing
+```
+
+You can also specify only one bound:
+
+```bash
+# Sync from March 1st onward (no upper limit)
+./orggle journal.org --from 2026-03-01
+
+# Sync up to March 15th (no lower limit)
+./orggle journal.org --to 2026-03-15
+```
+
+Note: When using `--from` or `--to`, all entries in the range are re-synced regardless of previous sync status, similar to `--day`.
+
 ### Delete Only
 
 Delete existing entries without syncing new ones:
@@ -341,7 +369,7 @@ Delete existing entries without syncing new ones:
 ### All Options
 
 ```
-usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--delete-existing] [org_file]
+usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [org_file]
 
 Sync org-mode clock entries to Toggl
 
@@ -353,7 +381,9 @@ optional arguments:
   --profile PROFILE     Toggl profile to use (default from config)
   --batch {daily}       Batch mode: 'daily' syncs all entries grouped by day
   --day DAY             Sync specific day (YYYY-MM-DD), ignores previous sync status
-  --delete-existing     Delete existing entries for --day before syncing
+  --from FROM_DATE      Start date for range (YYYY-MM-DD, inclusive)
+  --to TO_DATE          End date for range (YYYY-MM-DD, inclusive)
+  --delete-existing     Delete existing entries for --day/--range before syncing
 ```
 
 ## How It Works
