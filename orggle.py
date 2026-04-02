@@ -484,7 +484,9 @@ def parse_org_file(filepath: str, org_mappings: list = None) -> List[dict]:
             if pattern.match(line):
                 if entries:
                     last_entry = entries[-1]
-                    last_entry["description"] = description
+                    # Only apply mapping if the entry belongs to the current heading
+                    if last_entry.get("heading") == current_task:
+                        last_entry["description"] = description
                 break
 
         clock_match = re.search(
@@ -507,6 +509,7 @@ def parse_org_file(filepath: str, org_mappings: list = None) -> List[dict]:
 
             entry = {
                 "description": current_task,
+                "heading": current_task,
                 "start": start_dt.isoformat(),
                 "stop": end_dt.isoformat(),
                 "duration": duration_minutes * 60,

@@ -494,6 +494,8 @@ org_mappings:
 
 Result in Toggl: "Break Time" and "Meeting" instead of original task names.
 
+**Important:** Mapping patterns (like `- rest`) must appear **after** the `CLOCK:` line of the entry they should modify. If placed before the clock, they will be ignored because the entry does not exist yet.
+
 ### Tracking
 
 Synced entries are tracked in a profile-specific SQLite database:

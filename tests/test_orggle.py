@@ -395,6 +395,38 @@ profiles:
             assert "Task A (unchanged)" in skip_section, f"Unchanged entry should appear in skip section. Skip section: {skip_section}"
 
 
+def test_mapping_does_not_leak_across_headings():
+    """Test that mapping lines under a new heading do not affect previous entry's description."""
+    import tempfile
+    import os
+
+    org_content = """* TODO Task A
+  CLOCK: [2026-03-28 Sat 09:00]--[2026-03-28 Sat 10:00] => 1:00
+
+* TODO Task B
+  - rest
+  CLOCK: [2026-03-28 Sat 11:00]--[2026-03-28 Sat 12:00] => 1:00
+"""
+    org_mappings = [{"pattern": "^\\s*- rest$", "description": "Break Time"}]
+
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.org', delete=False) as f:
+        f.write(org_content)
+        temp_path = f.name
+    try:
+        entries = orggle.parse_org_file(temp_path, org_mappings)
+        assert len(entries) == 2
+        # Entries sorted by start descending: latest first. So Task B (11:00) will be first, Task A (09:00) second.
+        # Identify by start time
+        task_b_entry = next(e for e in entries if e['start'].startswith('2026-03-28T11:00'))
+        task_a_entry = next(e for e in entries if e['start'].startswith('2026-03-28T09:00'))
+        # Task A should remain "Task A" (not mapped)
+        assert task_a_entry['description'] == "Task A", f"Expected 'Task A', got {task_a_entry['description']}"
+        # Task B: mapping was BEFORE its CLOCK, so should NOT apply. So description stays "Task B".
+        assert task_b_entry['description'] == "Task B", f"Expected 'Task B', got {task_b_entry['description']}"
+    finally:
+        os.unlink(temp_path)
+
+
 def test_confirm_delete_with_mock():
     """Test confirm_delete returns True only for exact confirmation string."""
     try:
@@ -541,6 +573,7 @@ if __name__ == "__main__":
         test_yes_flag_parsed,
         test_yes_with_dry_run,
         test_update_changed_dry_run,
+        test_mapping_does_not_leak_across_headings,
         test_confirm_delete_requires_tty,
         test_confirm_delete_with_mock,
     ]
