@@ -327,6 +327,27 @@ Useful for:
 
 Note: `--dry-run` cannot be combined with `--delete-existing`.
 
+### Non-Interactive Mode (Auto-Accept)
+
+When running orggle from scripts, cron jobs, or CI/CD pipelines, use `--yes` (or `-y`) to automatically accept all sync prompts without requiring user interaction:
+
+```bash
+./orggle journal.org --yes
+```
+
+This is useful for:
+- Automated backups and scheduled syncs
+- CI/CD integration testing
+- Bulk operations where manual confirmation is unnecessary
+
+**Important**: `--yes` only bypasses the entry/day confirmation prompts. It does NOT bypass the `--delete-existing` safety confirmation, which always requires explicit user confirmation in an interactive terminal.
+
+Example with batch mode:
+
+```bash
+./orggle journal.org --batch daily --yes
+```
+
 ### Sync Specific Day
 
 Sync entries for a specific day, ignoring previous sync status:
@@ -386,7 +407,7 @@ Delete existing entries without syncing new ones:
 ### All Options
 
 ```
-usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [--dry-run] [org_file]
+usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [--dry-run] [-y] [org_file]
 
 Sync org-mode clock entries to Toggl
 
@@ -402,6 +423,7 @@ optional arguments:
   --to TO_DATE          End date for range (YYYY-MM-DD, inclusive)
   --delete-existing     Delete existing entries for --day/--range before syncing
   --dry-run             Preview what would be synced without making API calls
+  -y, --yes             Auto-accept all prompts (non-interactive mode)
 ```
 
 ## How It Works

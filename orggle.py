@@ -643,6 +643,7 @@ def create_parser() -> argparse.ArgumentParser:
         help="End date for range (YYYY-MM-DD, inclusive)")
     parser.add_argument("--delete-existing", action="store_true", help="Delete existing entries for --day before syncing")
     parser.add_argument("--dry-run", action="store_true", help="Preview what would be synced without making any API calls")
+    parser.add_argument("-y", "--yes", action="store_true", help="Auto-accept all prompts (non-interactive mode). Useful for scripts and cron jobs.")
     return parser
 
 
@@ -702,6 +703,12 @@ def main():
     if args.dry_run and args.delete_existing:
         print("Error: --dry-run cannot be used with --delete-existing.")
         print("(Use --dry-run first to preview, then run without it to actually delete and sync)")
+        sys.exit(1)
+
+    # Check that interactive mode has a TTY (unless --yes is used)
+    if not args.yes and not sys.stdin.isatty() and not args.dry_run:
+        print("Error: orggle requires an interactive terminal for prompts.")
+        print("Use --yes (or -y) to run non-interactively.")
         sys.exit(1)
 
     if args.delete_existing and not args.org_file:
@@ -949,7 +956,10 @@ def main():
         grouped = group_entries_by_day(new_entries)
         for day in sorted(grouped.keys(), reverse=True):
             day_entries = grouped[day]
-            response = confirm_day(day, day_entries)
+            if args.yes:
+                response = "y"
+            else:
+                response = confirm_day(day, day_entries)
             
             if response == "q":
                 quit_flag = True
@@ -972,7 +982,10 @@ def main():
                 print()
     else:
         for entry in new_entries:
-            response = confirm_sync(entry)
+            if args.yes:
+                response = "y"
+            else:
+                response = confirm_sync(entry)
 
             if response == "q":
                 quit_flag = True

@@ -225,6 +225,49 @@ def test_confirm_delete_requires_tty():
     assert "requires an interactive terminal" in result.stderr or "requires an interactive terminal" in result.stdout
 
 
+def test_yes_flag_parsed():
+    """Test that --yes flag is correctly parsed."""
+    parser = orggle.create_parser()
+    args = parser.parse_args(["journal.org", "--yes"])
+    assert args.yes == True
+    # Also test short form
+    args2 = parser.parse_args(["journal.org", "-y"])
+    assert args2.yes == True
+    # Ensure default is False
+    args3 = parser.parse_args(["journal.org"])
+    assert args3.yes == False
+
+
+def test_yes_with_dry_run():
+    """Test that --yes can be used with --dry-run."""
+    import subprocess
+    import os
+    from pathlib import Path
+
+    # Create a temporary org file with known entries
+    test_org_content = """* TODO Test task
+  CLOCK: [2026-03-28 Sat 09:00]--[2026-03-28 Sat 10:00] => 1:00
+"""
+    test_org_path = Path("test_yes_dry_run_sample.org")
+    try:
+        test_org_path.write_text(test_org_content)
+        result = subprocess.run(
+            [sys.executable, "orggle.py", str(test_org_path), "--yes", "--dry-run"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "TOGGL_API_TOKEN": "dummy_token"}
+        )
+        # Should not error - both flags are compatible
+        assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        # Output should contain "DRY RUN"
+        assert "DRY RUN" in result.stdout or "DRY RUN" in result.stderr
+        # Should mention the entry
+        assert "Test task" in result.stdout or "Test task" in result.stderr
+    finally:
+        if test_org_path.exists():
+            test_org_path.unlink()
+
+
 def test_confirm_delete_with_mock():
     """Test confirm_delete returns True only for exact confirmation string."""
     try:
@@ -279,6 +322,8 @@ if __name__ == "__main__":
         test_dry_run_flag_parsed,
         test_dry_run_conflict_with_delete_existing,
         test_dry_run_preview_output,
+        test_yes_flag_parsed,
+        test_yes_with_dry_run,
         test_confirm_delete_requires_tty,
         test_confirm_delete_with_mock,
     ]

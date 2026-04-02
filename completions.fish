@@ -46,6 +46,9 @@ complete -c orggle -l delete-existing -f -d "Delete existing Toggl entries for s
 # Dry-run flag
 complete -c orggle -l dry-run -f -d "Preview what would be synced without making any API calls"
 
+# Yes flag (auto-accept prompts)
+complete -c orggle -s y -l yes -f -d "Auto-accept all prompts (non-interactive mode)"
+
 # Combination help: --day with --delete-existing
 complete -c orggle -n "__fish_seen_subcommand_from --day" -l delete-existing -f -d "Delete existing entries for this day before syncing"
 
