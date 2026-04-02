@@ -348,6 +348,36 @@ Example with batch mode:
 ./orggle journal.org --batch daily --yes
 ```
 
+### Update Changed Entries
+
+If you edit an entry's description, duration, or time in your org file after it's already been synced, the default behavior will skip it (because the hash matches). To update changed entries in Toggl, use the `--update-changed` flag:
+
+```bash
+./orggle journal.org --update-changed
+```
+
+This compares your current org entries with the stored data in orggle's database. For each entry that has changed:
+1. Deletes the old Toggl entry
+2. Creates a new one with the updated information
+
+Unchanged entries are skipped automatically, so you don't create duplicates.
+
+Combine with `--day` or date ranges to focus on specific periods:
+
+```bash
+./orggle journal.org --day 2026-03-28 --update-changed
+./orggle journal.org --from 2026-03-01 --to 2026-03-15 --update-changed
+```
+
+Works with batch mode and interactive mode. The output shows which entries are being updated:
+
+```
+  Updating entry 123456 (description changed: 'Old text' → 'New text')
+  ✓ Synced: https://track.toggl.com/timer/789012345
+```
+
+**Note**: `--update-changed` requires that orggle has stored the original entry data (available in versions with this feature). It does not bypass the `--delete-existing` confirmation when used; it handles deletions automatically per changed entry.
+
 ### Sync Specific Day
 
 Sync entries for a specific day, ignoring previous sync status:
@@ -407,7 +437,7 @@ Delete existing entries without syncing new ones:
 ### All Options
 
 ```
-usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [--dry-run] [-y] [org_file]
+usage: orggle.py [-h] [--profile PROFILE] [--batch {daily}] [--day DAY] [--from FROM_DATE] [--to TO_DATE] [--delete-existing] [--dry-run] [-y] [--update-changed] [org_file]
 
 Sync org-mode clock entries to Toggl
 
@@ -424,6 +454,7 @@ optional arguments:
   --delete-existing     Delete existing entries for --day/--range before syncing
   --dry-run             Preview what would be synced without making API calls
   -y, --yes             Auto-accept all prompts (non-interactive mode)
+  --update-changed      Update entries that have changed (description, duration, time) by deleting and re-creating them
 ```
 
 ## How It Works

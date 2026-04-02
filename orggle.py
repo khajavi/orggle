@@ -263,16 +263,61 @@ def is_published(entry_hash: str, profile_name: str) -> bool:
     return row is not None and row[0] == 1
 
 
-def mark_published(entry_hash: str, toggl_id: str, profile_name: str):
-    """Mark an entry as published and store the Toggl ID."""
+def get_published_entry(entry_hash: str, profile_name: str) -> Optional[dict]:
+    """Retrieve a stored entry by its hash.
+
+    Returns a dict with entry data (description, start, stop, duration, toggl_id) or None if not found.
+    """
     db_path = get_db_path(profile_name)
     conn = sqlite3.connect(str(db_path))
     c = conn.cursor()
     c.execute("""
-        INSERT INTO entries (hash, published, toggl_id, synced_at)
-        VALUES (?, 1, ?, datetime('now'))
-        ON CONFLICT(hash) DO UPDATE SET published = 1, toggl_id = ?, synced_at = datetime('now')
-    """, (entry_hash, toggl_id, toggl_id))
+        SELECT description, start, stop, duration, toggl_id
+        FROM entries WHERE hash = ?
+    """, (entry_hash,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return {
+            "description": row[0],
+            "start": row[1],
+            "stop": row[2],
+            "duration": row[3],
+            "toggl_id": row[4]
+        }
+    return None
+
+
+def entries_are_equal(entry1: dict, entry2: dict) -> bool:
+    """Compare two entry dicts for equality in fields that matter for updates.
+
+    Checks description, start, stop, and duration. Ignores toggl_id and other metadata.
+    """
+    return (
+        entry1.get('description') == entry2.get('description') and
+        entry1.get('start') == entry2.get('start') and
+        entry1.get('stop') == entry2.get('stop') and
+        entry1.get('duration') == entry2.get('duration')
+    )
+
+
+def mark_published(entry_hash: str, toggl_id: str, profile_name: str, entry: dict):
+    """Mark an entry as published and store its full data for future change detection."""
+    db_path = get_db_path(profile_name)
+    conn = sqlite3.connect(str(db_path))
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO entries (hash, description, start, stop, duration, published, toggl_id, synced_at)
+        VALUES (?, ?, ?, ?, ?, 1, ?, datetime('now'))
+        ON CONFLICT(hash) DO UPDATE SET
+            description = excluded.description,
+            start = excluded.start,
+            stop = excluded.stop,
+            duration = excluded.duration,
+            published = 1,
+            toggl_id = excluded.toggl_id,
+            synced_at = datetime('now')
+    """, (entry_hash, entry['description'], entry['start'], entry['stop'], entry['duration'], toggl_id))
     conn.commit()
     conn.close()
 
@@ -644,6 +689,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--delete-existing", action="store_true", help="Delete existing entries for --day before syncing")
     parser.add_argument("--dry-run", action="store_true", help="Preview what would be synced without making any API calls")
     parser.add_argument("-y", "--yes", action="store_true", help="Auto-accept all prompts (non-interactive mode). Useful for scripts and cron jobs.")
+    parser.add_argument("--update-changed", action="store_true", help="Update entries that have changed (description, duration, time) by deleting and re-creating them")
     return parser
 
 
@@ -789,10 +835,20 @@ def main():
         would_skip = []
         for entry in entries:
             entry_hash = hash_entry(entry)
-            if is_published(entry_hash, profile_name):
-                would_skip.append(entry)
+            if args.update_changed:
+                stored = get_published_entry(entry_hash, profile_name)
+                if stored:
+                    if entries_are_equal(entry, stored):
+                        would_skip.append(entry)
+                    else:
+                        would_sync.append(entry)
+                else:
+                    would_sync.append(entry)
             else:
-                would_sync.append(entry)
+                if is_published(entry_hash, profile_name):
+                    would_skip.append(entry)
+                else:
+                    would_sync.append(entry)
 
         # Display results
         print("\n" + "="*40)
@@ -927,16 +983,31 @@ def main():
 
     new_entries = []
     already_synced = 0
-    if should_resync_all(args):
-        # When filtering by date, re-sync all entries in the filtered set
-        new_entries = entries
-    else:
+    if args.update_changed:
+        # Always use change detection, even with date filters
         for entry in entries:
             entry_hash = hash_entry(entry)
-            if is_published(entry_hash, profile_name):
-                already_synced += 1
+            stored = get_published_entry(entry_hash, profile_name)
+            if stored:
+                if entries_are_equal(entry, stored):
+                    already_synced += 1
+                else:
+                    # Mark for update: delete old then create new
+                    entry['_old_toggl_id'] = stored['toggl_id']
+                    entry['_old_description'] = stored['description']
+                    new_entries.append(entry)
             else:
                 new_entries.append(entry)
+    else:
+        if should_resync_all(args):
+            new_entries = entries
+        else:
+            for entry in entries:
+                entry_hash = hash_entry(entry)
+                if is_published(entry_hash, profile_name):
+                    already_synced += 1
+                else:
+                    new_entries.append(entry)
 
     print(f"Found {len(entries)} clock entries (latest first)")
     if already_synced > 0:
@@ -969,11 +1040,24 @@ def main():
                 print("  Skipped\n")
             else:
                 for entry in day_entries:
+                    # If entry needs update (changed), delete old first
+                    if '_old_toggl_id' in entry:
+                        old_id = entry['_old_toggl_id']
+                        # Show update message
+                        old_desc = entry.get('_old_description', '')
+                        new_desc = entry.get('description', '')
+                        change_desc = f" (description changed: '{old_desc}' → '{new_desc}')" if old_desc != new_desc else ""
+                        print(f"  Updating entry {old_id}{change_desc}...")
+                        if not delete_entry(api_token, workspace_id, proxies, old_id):
+                            print(f"  ✗ Failed to delete old entry {old_id}, skipping")
+                            skipped += 1
+                            continue
+                    # Create new entry
                     url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id, toggl_tag)
                     if url:
                         entry_hash = hash_entry(entry)
                         toggl_id = url.split("/")[-1]
-                        mark_published(entry_hash, toggl_id, profile_name)
+                        mark_published(entry_hash, toggl_id, profile_name, entry)
                         print(f"  ✓ Synced: {url}")
                         synced += 1
                     else:
@@ -994,11 +1078,23 @@ def main():
                 skipped += 1
                 print("  Skipped\n")
             else:
+                # If entry needs update (changed), delete old first
+                if '_old_toggl_id' in entry:
+                    old_id = entry['_old_toggl_id']
+                    old_desc = entry.get('_old_description', '')
+                    new_desc = entry.get('description', '')
+                    change_desc = f" (description changed: '{old_desc}' → '{new_desc}')" if old_desc != new_desc else ""
+                    print(f"  Updating entry {old_id}{change_desc}...")
+                    if not delete_entry(api_token, workspace_id, proxies, old_id):
+                        print(f"  ✗ Failed to delete old entry {old_id}, skipping")
+                        skipped += 1
+                        continue
+                # Create new entry
                 url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id, toggl_tag)
                 if url:
                     entry_hash = hash_entry(entry)
                     toggl_id = url.split("/")[-1]
-                    mark_published(entry_hash, toggl_id, profile_name)
+                    mark_published(entry_hash, toggl_id, profile_name, entry)
                     print(f"  ✓ Synced: {url}\n")
                     synced += 1
                 else:

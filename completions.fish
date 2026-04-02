@@ -49,6 +49,9 @@ complete -c orggle -l dry-run -f -d "Preview what would be synced without making
 # Yes flag (auto-accept prompts)
 complete -c orggle -s y -l yes -f -d "Auto-accept all prompts (non-interactive mode)"
 
+# Update-changed flag (smart updates)
+complete -c orggle -l update-changed -f -d "Update entries that have changed (description, duration, time) by deleting and re-creating them"
+
 # Combination help: --day with --delete-existing
 complete -c orggle -n "__fish_seen_subcommand_from --day" -l delete-existing -f -d "Delete existing entries for this day before syncing"
 

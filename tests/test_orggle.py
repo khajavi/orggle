@@ -268,6 +268,133 @@ def test_yes_with_dry_run():
             test_org_path.unlink()
 
 
+def test_update_changed_dry_run():
+    """Test that --update-changed correctly identifies changed vs unchanged entries in dry-run."""
+    import subprocess
+    import os
+    import sqlite3
+    import tempfile
+    from pathlib import Path
+
+    # We'll create a temporary HOME environment with a pre-seeded DB
+    with tempfile.TemporaryDirectory() as tmpdir:
+        home_dir = Path(tmpdir)
+        config_dir = home_dir / ".config" / "orggle"
+        config_dir.mkdir(parents=True)
+        db_path = config_dir / "default.db"
+
+        # Create config.yaml with default profile
+        config_yaml = """default_profile: default
+tag: orggle
+profiles:
+  default:
+    api_token: ${TOGGL_API_TOKEN}
+    default_project: Test
+"""
+        (config_dir / "config.yaml").write_text(config_yaml)
+
+        # Initialize DB schema
+        conn = sqlite3.connect(str(db_path))
+        c = conn.cursor()
+        c.execute("""
+            CREATE TABLE entries (
+                hash TEXT PRIMARY KEY,
+                description TEXT,
+                start TEXT,
+                stop TEXT,
+                duration INTEGER,
+                published INTEGER DEFAULT 0,
+                toggl_id TEXT,
+                synced_at TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+        # Create org file with two entries
+        org_content = """* TODO Task A (unchanged)
+  CLOCK: [2026-03-28 Sat 09:00]--[2026-03-28 Sat 10:00] => 1:00
+
+* TODO Task B changed version
+  CLOCK: [2026-03-28 Sat 10:00]--[2026-03-28 Sat 11:00] => 1:00
+"""
+        org_file = config_dir / "test_update.org"
+        org_file.write_text(org_content)
+
+        # Parse the org file in the test process to get the actual entry data (timestamps, durations) as orggle would parse them.
+        entries = orggle.parse_org_file(str(org_file), org_mappings=[])
+        assert len(entries) == 2
+        # Identify entry A and B by description content (but descriptions are from org file; we want to store original versions)
+        # In org, entry B description is "Task B changed version". That's the current (new) description.
+        # We want to store in DB entry B with a different original description.
+        # So we'll find entry with start 09:00 as Entry A, and 10:00 as Entry B.
+        entry_a = next(e for e in entries if e['start'].startswith('2026-03-28T09:00'))
+        entry_b = next(e for e in entries if e['start'].startswith('2026-03-28T10:00'))
+
+        # Compute hashes
+        hash_a = orggle.hash_entry(entry_a)
+        hash_b = orggle.hash_entry(entry_b)
+
+        # Insert into DB:
+        # For Entry A: use same description as org (unchanged)
+        # For Entry B: use a different description (original version)
+        conn = sqlite3.connect(str(db_path))
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO entries (hash, description, start, stop, duration, published, toggl_id, synced_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?, datetime('now'))
+        """, (hash_a, "Task A (unchanged)", entry_a['start'], entry_a['stop'], entry_a['duration'], "toggl_a"))
+        c.execute("""
+            INSERT INTO entries (hash, description, start, stop, duration, published, toggl_id, synced_at)
+            VALUES (?, ?, ?, ?, ?, 1, ?, datetime('now'))
+        """, (hash_b, "Task B original version", entry_b['start'], entry_b['stop'], entry_b['duration'], "toggl_b"))
+        conn.commit()
+        conn.close()
+
+        # Set up environment for subprocess: HOME=tmpdir, TOGGL_API_TOKEN=dummy
+        env = os.environ.copy()
+        env["HOME"] = str(home_dir)
+        env["TOGGL_API_TOKEN"] = "dummy_token"
+
+        # Determine repo root (where orggle.py resides). We assume test file is in tests/ in repo root.
+        repo_root = Path(__file__).parent.parent
+
+        # Run orggle with --dry-run --update-changed
+        result = subprocess.run(
+            [sys.executable, "orggle.py", str(org_file), "--dry-run", "--update-changed"],
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=str(repo_root)
+        )
+
+        # Should exit 0
+        assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"
+
+        output = result.stdout + result.stderr
+
+        # Check counts: Would sync 1, Would skip 1
+        assert "Would sync 1" in output, f"Expected 'Would sync 1' in output, got: {output}"
+        assert "Would skip 1" in output, f"Expected 'Would skip 1' in output, got: {output}"
+
+        # Extract sync section: after "Would sync 1 entries:" up to next section (Would skip or end)
+        if "Would sync 1 entries:" in output:
+            after_sync = output.split("Would sync 1 entries:", 1)[1]
+            # If there is a "Would skip" after, take part before that; else whole after
+            if "Would skip" in after_sync:
+                sync_section = after_sync.split("Would skip", 1)[0]
+            else:
+                sync_section = after_sync
+            assert "Task B changed version" in sync_section, f"Changed entry should appear in sync section. Sync section: {sync_section}"
+
+        # Extract skip section: after "Would skip 1 entries (already synced):" until end or next section
+        if "Would skip 1 entries (already synced):" in output:
+            after_skip = output.split("Would skip 1 entries (already synced):", 1)[1]
+            # Next possible section could be nothing or maybe other output
+            skip_section = after_skip  # rest is fine
+            assert "Task A (unchanged)" in skip_section, f"Unchanged entry should appear in skip section. Skip section: {skip_section}"
+
+
 def test_confirm_delete_with_mock():
     """Test confirm_delete returns True only for exact confirmation string."""
     try:
@@ -307,6 +434,95 @@ def test_confirm_delete_with_mock():
             assert result == False
 
 
+def test_entries_are_equal():
+    """Test entries_are_equal comparison."""
+    entry1 = {
+        "description": "Test task",
+        "start": "2026-03-28T09:00:00+00:00",
+        "stop": "2026-03-28T10:00:00+00:00",
+        "duration": 3600,
+        "toggl_id": "123"
+    }
+    entry2 = {
+        "description": "Test task",
+        "start": "2026-03-28T09:00:00+00:00",
+        "stop": "2026-03-28T10:00:00+00:00",
+        "duration": 3600,
+        "toggl_id": "456"
+    }
+    # Same critical fields, different toggl_id -> equal
+    assert orggle.entries_are_equal(entry1, entry2) == True
+
+    # Different description
+    entry3 = dict(entry1)
+    entry3["description"] = "Changed description"
+    assert orggle.entries_are_equal(entry1, entry3) == False
+
+    # Different duration
+    entry4 = dict(entry1)
+    entry4["duration"] = 7200
+    assert orggle.entries_are_equal(entry1, entry4) == False
+
+    # Different start
+    entry5 = dict(entry1)
+    entry5["start"] = "2026-03-28T10:00:00+00:00"
+    assert orggle.entries_are_equal(entry1, entry5) == False
+
+    # Different stop
+    entry6 = dict(entry1)
+    entry6["stop"] = "2026-03-28T11:00:00+00:00"
+    assert orggle.entries_are_equal(entry1, entry6) == False
+
+
+def test_get_published_entry():
+    """Test get_published_entry retrieves stored entry data."""
+    import tempfile
+    from pathlib import Path
+    try:
+        from unittest.mock import patch
+    except ImportError:
+        print("Skipping test_get_published_entry: unittest.mock not available")
+        return
+
+    # Create a temporary database for a test profile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "test.db"
+        # Monkey-patch get_db_path to return our test db
+        original_get_db_path = orggle.get_db_path
+        def mock_get_db_path(profile_name):
+            return str(db_path)
+        orggle.get_db_path = mock_get_db_path
+
+        try:
+            # Initialize DB for profile 'test'
+            orggle.init_db('test')
+            # Insert a sample entry
+            entry_hash = "abc123"
+            entry_data = {
+                'description': 'Original task',
+                'start': '2026-03-28T09:00:00+00:00',
+                'stop': '2026-03-28T10:00:00+00:00',
+                'duration': 3600,
+                'toggl_id': 'toggl123'
+            }
+            orggle.mark_published(entry_hash, 'toggl123', 'test', entry_data)
+
+            # Retrieve it
+            stored = orggle.get_published_entry(entry_hash, 'test')
+            assert stored is not None
+            assert stored['description'] == 'Original task'
+            assert stored['toggl_id'] == 'toggl123'
+            assert stored['start'] == entry_data['start']
+            assert stored['stop'] == entry_data['stop']
+            assert stored['duration'] == 3600
+
+            # Non-existent hash returns None
+            stored2 = orggle.get_published_entry('nonexistent', 'test')
+            assert stored2 is None
+        finally:
+            orggle.get_db_path = original_get_db_path
+
+
 if __name__ == "__main__":
     # Run all tests
     test_functions = [
@@ -324,6 +540,7 @@ if __name__ == "__main__":
         test_dry_run_preview_output,
         test_yes_flag_parsed,
         test_yes_with_dry_run,
+        test_update_changed_dry_run,
         test_confirm_delete_requires_tty,
         test_confirm_delete_with_mock,
     ]
