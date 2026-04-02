@@ -1,0 +1,76 @@
+# B-027: Automated Nix Package Build and Test
+
+**Priority:** Tier 2 (Medium) - Ensure Nix package works for NixOS users
+**Effort:** Small (S - 2 hours)
+**Dependencies:** B-019 (tests run)
+
+---
+
+## Problem Statement
+
+Project provides Nix packaging (`nix/` directory likely exists), but CI doesn't verify that the Nix package builds and works. Nix users may encounter broken package.
+
+---
+
+## Proposed Solution
+
+Add job to CI that runs Nix build in a Linux environment with Nix installed.
+
+### Implementation
+
+Add to `.github/workflows/ci.yml`:
+
+```yaml
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v23
+
+      - name: Build orggle package
+        run: |
+          nix-build nix/default.nix
+
+      - name: Test orggle from Nix package
+        run: |
+          ./result/bin/orggle --version
+          # Could also run a dry-run with sample org file
+```
+
+Alternatively, use `nix-run` or `nix-shell` to test.
+
+If project uses flakes:
+```yaml
+      - name: Check flake
+        run: nix flake check
+```
+
+---
+
+## Acceptance
+
+- [ ] Nix package builds successfully in CI
+- [ ] Binary runs and shows version
+- [ ] Optionally runs dry-run test with sample org file
+- [ ] Nix build failures cause CI failure
+
+---
+
+## Effort
+
+- Add Nix action: 30m
+- Adjust package if build issues: 1h
+- **Total:** ~1.5h
+
+---
+
+## Notes
+
+The `cachix/install-nix-action` is standard. May need to enable experimental features if using flakes.
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

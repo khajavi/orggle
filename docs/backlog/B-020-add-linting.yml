@@ -1,0 +1,93 @@
+# B-020: Add Linting and Code Quality Checks to CI
+
+**Priority:** Tier 1 (High) - Enforce code style and catch bugs early
+**Effort:** Small (S - 2 hours)
+**Dependencies:** B-019 (tests must pass first)
+
+---
+
+## Problem Statement
+
+No automated code quality checks. Code style inconsistencies, unused imports, type errors, and formatting issues go undetected until review or runtime.
+
+**Desired checks:**
+- Formatting: `black` (code style), `isort` (import sorting)
+- Linting: `flake8` (PEP8), `pylint` (optional)
+- Type checking: `mypy` (type hints validation)
+- Security: `bandit` (security vulnerabilities)
+
+---
+
+## Proposed Solution
+
+Add linting jobs to CI that run after tests. Fail CI if code doesn't meet standards.
+
+### Concrete Implementation
+
+Update `.github/workflows/ci.yml`:
+
+```yaml
+      - name: Lint with flake8
+        run: |
+          pip install flake8
+          flake8 orggle.py tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 orggle.py tests/ --count --max-complexity=10 --max-line-length=88 --statistics
+
+      - name: Check formatting with black
+        run: |
+          pip install black
+          black --check orggle.py tests/
+
+      - name: Check imports with isort
+        run: |
+          pip install isort
+          isort --check-only orggle.py tests/
+
+      - name: Type check with mypy (optional if types exist)
+        if: always()  # Run even if previous steps failed
+        run: |
+          pip install mypy
+          mypy orggle.py --ignore-missing-imports
+```
+
+### Configuration files to add:
+
+- `pyproject.toml` or `.flake8` for flake8 config
+- `.black` for black config (or use defaults)
+- `.isort.cfg` for isort
+- `mypy.ini` for mypy
+
+Or configure inline in commands.
+
+---
+
+## Acceptance Criteria
+
+- [ ] CI runs `flake8` and fails on errors (E/W selectors)
+- [ ] CI runs `black --check` and fails if formatting needed
+- [ ] CI runs `isort --check-only` and fails if imports need sorting
+- [ ] CI runs `mypy` and fails on type errors (gracefully if no types)
+- [ ] All lint checks pass on current codebase (may need to fix existing issues)
+- [ ] Config files committed (`.flake8`, `.black`, etc.)
+
+---
+
+## Effort
+
+- Install and configure tools: 1h
+- Fix existing code style issues: 1h
+- Update CI: 30m
+- **Total:** ~2h
+
+---
+
+## Notes
+
+Can make lint job separate from test job for parallelization in GitHub Actions matrix. But simplest: add steps after tests.
+
+Consider using `pylint` if more thorough, but flake8+black+isort is usually enough.
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

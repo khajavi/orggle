@@ -1,0 +1,95 @@
+# B-026: Pre-commit Hooks for Local Development
+
+**Priority:** Tier 2 (High) - Enforce quality before commit
+**Effort:** Small (S - 2 hours)
+**Dependencies:** None (local dev tooling)
+
+---
+
+## Problem Statement
+
+Developers (including self) may commit code that doesn't meet style guidelines, has lint errors, or missing trailing commas. CI catches these but feedback loop is slow (wait for CI).
+
+---
+
+## Proposed Solution
+
+Set up `pre-commit` framework with hooks for:
+- Code formatting (`black`)
+- Import sorting (`isort`)
+- Linting (`flake8`)
+- Trailing whitespace removal
+- Merge conflict markers check
+- Secret scanning (detect accidental API tokens in code)
+- Test suite (run fast tests before commit)
+
+### Implementation
+
+1. Add `pre-commit` to dev dependencies (or just install)
+2. Create `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.1.0
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        additional_dependencies: [flake8-bugbear, flake8-comprehensions]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: detect-secrets
+```
+
+3. Install: `pre-commit install`
+4. Add to README: "Set up pre-commit hooks: `pre-commit install`"
+5. Optionally add `pre-commit.ci` GitHub Action to auto-fix on PRs
+
+---
+
+## Acceptance
+
+- [ ] `.pre-commit-config.yaml` committed
+- [ ] Running `pre-commit run` on modified files formats and lints
+- [ ] Hooks execute on `git commit` (after install)
+- [ ] Developers instructed to install pre-commit
+- [ ] CI still passes (pre-commit shouldn't replace CI, just guide)
+
+---
+
+## Effort
+
+- Create config: 1h
+- Test and adjust to passing: 30m
+- Documentation: 30m
+- **Total:** ~2h
+
+---
+
+## Benefits
+
+- Immediate feedback before commit
+- Consistent codebase style
+- Fewer CI failures
+- Catching secrets early
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

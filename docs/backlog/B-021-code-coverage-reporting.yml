@@ -1,0 +1,65 @@
+# B-021: Code Coverage Reporting
+
+**Priority:** Tier 2 (Medium) - Understand test effectiveness
+**Effort:** Small (S - 2 hours)
+**Dependencies:** B-019 (tests run in CI)
+
+---
+
+## Problem Statement
+
+No visibility into how much of the codebase is covered by tests. Could have untested critical paths (error handling, edge cases).
+
+---
+
+## Proposed Solution
+
+Use `coverage.py` to measure test coverage, upload to Codecov or Coveralls.
+
+### Implementation
+
+1. Add `coverage` to requirements (or install in CI)
+2. Modify test command in CI:
+   ```yaml
+      - name: Run tests with coverage
+        run: |
+          pip install coverage
+          coverage run tests/test_orggle.py
+          coverage report -m
+          coverage xml
+   ```
+3. Upload to Codecov:
+   ```yaml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage.xml
+   ```
+4. Add `codecov.yml` for configuration (badge, thresholds, etc.)
+
+### Coverage Goals
+
+Set a reasonable threshold (e.g., 80% overall, critical functions 100%). Fail CI if below threshold using `coverage report --fail-under=80`.
+
+---
+
+## Acceptance
+
+- [ ] Coverage measured in CI
+- [ ] Coverage report displayed in GitHub Actions
+- [ ] Codecov badge added to README (optional)
+- [ ] Coverage threshold enforced (e.g., 80%)
+- [ ] Identify uncovered lines and add tests to increase coverage
+
+---
+
+## Effort
+
+- Setup: 1h
+- Achieve reasonable coverage: 1-2h (may need to add tests for missing paths)
+- **Total:** ~2h initial, ongoing as code grows
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

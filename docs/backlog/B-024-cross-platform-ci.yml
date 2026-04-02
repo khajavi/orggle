@@ -1,0 +1,81 @@
+# B-024: Cross-Platform Testing (macOS, Windows)
+
+**Priority:** Tier 2 (Medium) - Catch platform-specific bugs
+**Effort:** Small (S - 2 hours)
+**Dependencies:** B-019 (tests run)
+
+---
+
+## Problem Statement
+
+CI only runs on `ubuntu-latest`. Issues may exist on macOS or Windows due to:
+- Different line endings (CRLF vs LF)
+- Path handling differences
+- Shell script compatibility (install.sh, uninstall.sh)
+- TTY/terminal behavior
+
+---
+
+## Proposed Solution
+
+Add test matrix including `macos-latest` and `windows-latest`.
+
+### Implementation
+
+Modify `.github/workflows/ci.yml`:
+
+```yaml
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10", "3.11"]  # reduce to 2 versions per OS to save time
+```
+
+Then adjust steps for OS differences:
+- Windows: use `python` instead of `python3`, shell syntax differences in install script tests
+- macOS: ensure Python 3 available via `brew install python` (GitHub provides Python)
+
+Also test the install scripts:
+```yaml
+      - name: Test install.sh
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          chmod +x install.sh
+          # Dry-run or test in temp directory
+```
+
+Or create separate job for installer testing.
+
+---
+
+## Acceptance
+
+- [ ] CI runs on at least 3 OS types
+- [ ] Tests pass on all platforms
+- [ ] Installer scripts work on target platforms (bash on Linux/mac, fish if available)
+- [ ] Windows PowerShell compatibility checked (maybe separate)
+
+---
+
+## Effort
+
+- Update CI matrix: 30m
+- Fix any platform-specific bugs uncovered: 1-2h
+- Test installers across platforms: 30m
+- **Total:** ~2h (plus potential bug fixes)
+
+---
+
+## Notes
+
+GitHub Actions provides:
+- ubuntu-latest (Ubuntu)
+- macos-latest (macOS)
+- windows-latest (Windows Server)
+
+Python pre-installed versions vary; use `actions/setup-python` for consistency.
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

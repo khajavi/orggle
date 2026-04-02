@@ -1,0 +1,79 @@
+# B-025: Security Scanning with Bandit and Safety
+
+**Priority:** Tier 1 (High) - Catch security vulnerabilities early
+**Effort:** Small (S - 2 hours)
+**Dependencies:** B-019 (CI running)
+
+---
+
+## Problem Statement
+
+No automated security scanning. Could have:
+- Hardcoded credentials (though uses env vars, good)
+- Shell injection vulnerabilities in `subprocess` calls
+- Unsafe deserialization
+- Dependency vulnerabilities (known CVEs)
+
+---
+
+## Proposed Solution
+
+Add `bandit` (Python security linter) and `safety` (dependency vulnerability scanner) to CI.
+
+### Implementation
+
+```yaml
+      - name: Install security scanning tools
+        run: |
+          pip install bandit safety
+
+      - name: Run bandit security scan
+        run: |
+          bandit -r orggle.py -f json -o bandit-report.json
+
+      - name: Run safety dependency check
+        run: |
+          safety check --json | tee safety-report.json
+
+      - name: Upload security reports as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+```
+
+Optionally fail CI on high-severity issues:
+```bash
+bandit -ll  # only show high/medium severity
+safety check --full-report --fail-on High
+```
+
+---
+
+## Acceptance
+
+- [ ] bandit runs on codebase, report generated
+- [ ] safety checks dependencies against vulnerability DB
+- [ ] Reports uploaded as artifacts for review
+- [ ] CI fails on critical/high severity findings (configurable)
+
+---
+
+## Effort
+
+- Install and run tools: 1h
+- Configure thresholds and ignore false positives: 1h
+- **Total:** ~2h
+
+---
+
+## Related
+
+- B-020 (linting) pairs well with security scanning
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

@@ -13,8 +13,8 @@ This directory contains planned improvements, features, and bug fixes for orggle
 
 | ID | Title | Priority | Effort | Status |
 |-----|-------|----------|--------|--------|
-| [B-001](B-001-dry-run-preview-mode.md) | Dry-Run / Preview Mode | Tier 1 | XS | Planned |
-| [B-002](B-002-confirm-delete-existing.md) | Confirm Before Delete | Tier 1 | XS | Planned |
+| [B-001](B-001-dry-run-preview-mode.md) | Dry-Run / Preview Mode | Tier 1 | XS | Completed |
+| [B-002](B-002-confirm-delete-existing.md) | Confirm Before Delete | Tier 1 | XS | Completed |
 | [B-003](B-003-description-update-gap.md) | Fix Description Update Gap | Tier 1 | M | Planned |
 | [B-004](B-004-auto-accept-flag.md) | Add `--yes` Flag | Tier 1 | XS | Planned |
 | [B-005](B-005-fix-mapping-logic.md) | Fix Description Mapping Logic | Tier 2 | S | Planned |
@@ -31,6 +31,16 @@ This directory contains planned improvements, features, and bug fixes for orggle
 | [B-016](B-016-auto-batch-threshold.md) | Auto-Batch Threshold | Tier 3 | S | Planned |
 | [B-017](B-017-resume-capability.md) | Resume Capability | Tier 4 | M | Planned |
 | [B-018](B-018-code-modularization.md) | Code Modularization | Tier 4 | L | Planned |
+| [B-019](B-019-run-tests-in-ci.yml) | Actually Run Tests in CI | Tier 0 (Critical) | XS | Planned |
+| [B-020](B-020-add-linting.yml) | Add Linting and Code Quality Checks | Tier 1 (High) | S | Planned |
+| [B-021](B-021-code-coverage-reporting.yml) | Code Coverage Reporting | Tier 2 (Medium) | S | Planned |
+| [B-022](B-022-pypi-publishing.yml) | Automated PyPI Publication on Release | Tier 2 (High) | M | Planned |
+| [B-023](B-023-dependabot-auto-updates.yml) | Enable Dependabot for Dependency Updates | Tier 1 (High) | XS | Planned |
+| [B-024](B-024-cross-platform-ci.yml) | Cross-Platform Testing (macOS, Windows) | Tier 2 (Medium) | S | Planned |
+| [B-025](B-025-security-scanning.yml) | Security Scanning with Bandit and Safety | Tier 1 (High) | S | Planned |
+| [B-026](B-026-pre-commit-hooks.yml) | Pre-commit Hooks for Local Development | Tier 2 (High) | S | Planned |
+| [B-027](B-027-nix-package-testing.yml) | Automated Nix Package Build and Test | Tier 2 (Medium) | S | Planned |
+| [B-028](B-028-installer-smoke-test.yml) | Installer Smoke Test in CI | Tier 2 (Medium) | S | Planned |
 
 **Effort Estimates:**
 - **XS**: < 1 hour

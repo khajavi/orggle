@@ -1,0 +1,94 @@
+# B-028: Installer Smoke Test in CI
+
+**Priority:** Tier 2 (Medium) - Ensure install scripts work correctly
+**Effort:** Small (S - 2 hours)
+**Dependencies:** B-019 (tests run)
+
+---
+
+## Problem Statement
+
+`install.sh` and `install.fish` scripts are provided to users, but we don't test them. If they break, users can't install properly.
+
+---
+
+## Proposed Solution
+
+Add CI job that runs installers in a clean environment (fresh container) and verifies:
+- Virtual environment created
+- `orggle` wrapper script exists and is executable
+- Config directory created with default config
+- `orggle --version` works
+- Fish completions installed (if fish available)
+
+### Implementation
+
+Create separate job in CI:
+
+```yaml
+  test-installer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clean any previous config
+        run: |
+          rm -rf ~/.config/orggle
+          rm -rf .venv
+
+      - name: Run install.sh
+        run: |
+          chmod +x install.sh
+          ./install.sh <<< "y"  # auto-confirm prompts if any; or use env to pre-accept
+          # Or: yes | ./install.sh
+
+      - name: Verify installation
+        run: |
+          test -x ./orggle
+          ./orggle --version
+          test -d ~/.config/orggle
+          test -f ~/.config/orggle/config.yaml
+```
+
+For fish, need shell with fish installed:
+
+```yaml
+      - name: Install fish
+        run: |
+          sudo apt-get update && sudo apt-get install -y fish
+
+      - name: Run install.fish
+        run: |
+          chmod +x install.fish
+          fish -c './install.fish'  # run in fish shell
+```
+
+---
+
+## Acceptance
+
+- [ ] Install script runs without error in CI
+- [ ] Produces expected files (orggle script, config)
+- [ ] Installed orggle runs and shows version
+- [ ] Completion file installed (if applicable)
+- [ ] Uninstall script also tested (optional)
+
+---
+
+## Effort
+
+- Add CI job: 1h
+- Handle interactive prompts (use env vars or expect): 1h
+- **Total:** ~2h
+
+---
+
+## Risks
+
+- Installer may try to modify global state outside of project. Run in isolated workspace.
+- May need to provide dummy API token during install. Could set `TOGGL_API_TOKEN=dummy` in CI.
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

@@ -1,0 +1,110 @@
+# B-019: Actually Run the Test Suite in CI
+
+**Priority:** Tier 0 (Critical) - Current CI doesn't test code changes!
+**Effort:** Extra Small (XS - 30 minutes)
+**Dependencies:** None
+
+---
+
+## Problem Statement
+
+The existing `.github/workflows/ci.yml` does **NOT run the test suite**. It only:
+- Checks Python syntax (`py_compile`)
+- Verifies `--version` flag works
+- Verifies `--help` works
+
+This means:
+- Broken tests go undetected
+- New features without tests aren't caught
+- Regression bugs slip through
+- Code coverage is unknown
+- The CI passes even if tests are failing locally
+
+**Current CI is a false sense of security.**
+
+---
+
+## Proposed Solution
+
+Add a step to actually run `tests/test_orggle.py`. Use pytest if available, otherwise run as module.
+
+### Implementation
+
+Modify `.github/workflows/ci.yml`:
+
+```yaml
+      - name: Run test suite
+        run: |
+          python tests/test_orggle.py
+        # or if using pytest:
+        # pytest tests/ -v
+```
+
+**Best practice:** Run with both direct Python (current) and pytest if installed. Capture exit code.
+
+Also, ensure tests can run in CI environment:
+- May need dummy config or ensure config file creation works in sandbox
+- Already tests that skip if no config (test_dry_run_preview_output has guard)
+- All other unit tests should work without real config
+
+### Additional suggestion: Fail if test file doesn't exist
+
+Add a check that tests/ directory exists and contains test files, to catch accidental deletion.
+
+---
+
+## Implementation Steps
+
+1. Edit `.github/workflows/ci.yml`
+2. Insert after "Verify --help works" step:
+   ```yaml
+      - name: Run test suite
+        run: |
+          echo "Running test suite..."
+          python tests/test_orggle.py
+   ```
+3. Commit and push to test CI
+4. Verify all tests pass on GitHub Actions
+
+---
+
+## Expected CI Output
+
+```
+Run python tests/test_orggle.py
+  ✓ test_from_to_arguments_are_parsed
+  ✓ test_from_to_arguments_with_day
+  ...
+  ✓ test_confirm_delete_with_mock
+  All 14 tests passed
+```
+
+If any test fails, CI should fail (non-zero exit).
+
+---
+
+## Acceptance
+
+- [ ] CI runs `python tests/test_orggle.py` on every push/PR
+- [ ] CI fails if any test fails
+- [ ] Test output visible in GitHub Actions logs
+- [ ] Test count tracked over time (optional)
+
+---
+
+## Risks
+
+- Test might fail due to environment (read-only filesystem). Need to ensure tests can create temporary files.
+- Mitigation: All tests should be hermetic. The dry-run integration test already handles missing config by skipping. That's good.
+
+---
+
+## Related
+
+- B-020: Add linting after tests pass
+- B-021: Add coverage reporting
+
+---
+
+**Status:** Planned (CRITICAL)
+**Created:** 2025-04-02

@@ -1,0 +1,76 @@
+# B-023: Enable Dependabot for Dependency Updates
+
+**Priority:** Tier 1 (High) - Keep dependencies secure and up-to-date automatically
+**Effort:** Extra Small (XS - 30 minutes)
+**Dependencies:** None
+
+---
+
+## Problem Statement
+
+Dependencies (Python packages, GitHub actions) are manually updated. Security vulnerabilities or outdated packages go unnoticed until manual check.
+
+---
+
+## Proposed Solution
+
+Enable Dependabot to automatically:
+- Update Python dependencies (requirements.txt or pyproject.toml)
+- Update GitHub Actions versions (e.g., `actions/checkout@v4` → v5)
+- Create PRs when updates are available
+- Auto-merge approved updates (optional)
+
+### Implementation
+
+Add `.github/dependabot.yml`:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"  # location of requirements.txt or pyproject.toml
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore(ci):"
+```
+
+Also consider `pip-tools` for deterministic dependencies, but Dependabot handles requirements.txt fine.
+
+---
+
+## Acceptance
+
+- [ ] `.github/dependabot.yml` added
+- [ ] Dependabot creates PRs for dependency updates
+- [ ] GitHub Actions versions auto-updated
+- [ ] Python package updates proposed regularly
+
+---
+
+## Effort
+
+- Create config file: 15m
+- Maybe adjust CI to handle different action versions: 15m
+- **Total:** 30m
+
+---
+
+## Risks
+
+- Updates may break CI
+- Mitigation: CI runs on PRs automatically; can adjust dependabot to limit scope
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02

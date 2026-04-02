@@ -1,0 +1,81 @@
+# B-022: Automated PyPI Publication on Release
+
+**Priority:** Tier 2 (High) - Make installation easier for users
+**Effort:** Medium (M - 4 hours)
+**Dependencies:** Release workflow exists
+
+---
+
+## Problem Statement
+
+Currently, users install via git clone or Nix. There's no PyPI package, which is the standard Python distribution channel. This limits reach and ease of installation (`pip install orggle` would be much easier).
+
+---
+
+## Proposed Solution
+
+Build and publish wheel and source distribution to PyPI on GitHub release.
+
+### Implementation
+
+1. Create `pyproject.toml` with package metadata (if not using setup.py)
+2. Update release workflow to:
+   - Build distributions: `python -m pip install build && python -m build`
+   - Upload to PyPI using `pypa/gh-action-pypi-publish@release/v1`
+3. Add `TWINE_PASSWORD` and `TWINE_USERNAME` (or __token__) as GitHub secrets
+4. Verify package installation from test.pypi.org first (optional)
+
+### Example step in release.yml:
+
+```yaml
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          username: __token__
+```
+
+Also: Add "Install from PyPI" section to README:
+```bash
+pip install orggle
+```
+
+May need to add `requirements.txt` or `install_requires` in package config.
+
+---
+
+## Acceptance
+
+- [ ] `pyproject.toml` or `setup.py` defines package correctly
+- [ ] Release workflow builds wheel and sdist
+- [ ] Release workflow publishes to PyPI on tagged release
+- [ ] `pip install orggle` works in fresh venv
+- [ ] README updated with PyPI install instructions
+- [ ] Badge added: "PyPI version" shield
+
+---
+
+## Effort
+
+- Create package config: 2h
+- Configure GitHub Actions: 1h
+- Test on TestPyPI: 1h
+- **Total:** ~4h
+
+---
+
+## Risks
+
+- Publishing broken package affects users
+- Mitigation: Thorough CI (tests, lint) before release; use TestPyPI for staging
+- Package naming conflict? Check PyPI for existing "orggle" – seems available
+
+---
+
+**Status:** Planned
+**Created:** 2025-04-02
