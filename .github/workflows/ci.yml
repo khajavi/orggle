@@ -41,3 +41,8 @@ jobs:
       - name: Verify --help works
         run: |
           python orggle.py --help
+
+      - name: Run test suite
+        run: |
+          echo "Running test suite..."
+          python tests/test_orggle.py
