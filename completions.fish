@@ -33,16 +33,17 @@ complete -c orggle -l batch -x -f -d "Batch mode: 'daily' syncs all entries grou
 
 # Day option (YYYY-MM-DD format) with date suggestions
 function __fish_orggle_dates
-    # Generate dates: today ± 7 days (15 days total)
+    # Generate dates from 1 year ago to 3 months in future (approx 455 days)
     # Uses GNU date syntax (Linux, NixOS)
-    set -l start (date -d "-7 days" +%Y-%m-%d 2>/dev/null)
+    set -l start (date -d "1 year ago" +%Y-%m-%d 2>/dev/null)
     if test $status -ne 0
-        # Fallback if GNU date not available: just output today
+        # Fallback: just output today
         date +%Y-%m-%d 2>/dev/null
         return
     end
-    for i in (seq 0 14)
-        date -d "$start + $i days" +%Y-%m-%d
+    # Generate about 455 days (covers 1 year + 3 months)
+    for i in (seq 0 455)
+        date -d "$start + $i days" +%Y-%m-%d 2>/dev/null
     end
 end
 
