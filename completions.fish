@@ -37,13 +37,13 @@ function __fish_orggle_dates
     # Try GNU date syntax first (Linux)
     if date -d "yesterday" +%Y-%m-%d 2>/dev/null
         set -l start (date -d "-7 days" +%Y-%m-%d)
-        for i (seq 0 14)
+        for i in (seq 0 14)
             date -d "$start + $i days" +%Y-%m-%d
         end
     # Try BSD date syntax (macOS)
     else if date -v-1d +%Y-%m-%d 2>/dev/null
         set -l start (date -v-7d +%Y-%m-%d)
-        for i (seq 0 14)
+        for i in (seq 0 14)
             date -v+${i}d $start +%Y-%m-%d
         end
     else
