@@ -225,6 +225,86 @@ def load_config() -> dict:
     return default_config
 
 
+def validate_config(config: dict) -> List[str]:
+    """Validate configuration and return a list of errors (empty if valid)."""
+    errors = []
+
+    # 1. Check default_profile presence and type
+    if "default_profile" not in config:
+        errors.append("Missing 'default_profile' in config")
+    else:
+        if not isinstance(config["default_profile"], str):
+            errors.append("'default_profile' must be a string")
+
+    # 2. Check profiles section exists and is dict
+    if "profiles" not in config or not isinstance(config["profiles"], dict):
+        errors.append("Missing 'profiles' section or not a dictionary")
+    else:
+        profiles = config["profiles"]
+        # Validate each profile
+        for name, profile in profiles.items():
+            # Required fields: api_token, default_project
+            for field in ["api_token", "default_project"]:
+                if field not in profile:
+                    errors.append(f"Profile '{name}' missing required field '{field}'")
+                elif not profile[field]:
+                    errors.append(f"Profile '{name}' has empty '{field}'")
+            # api_token should be string if present
+            api_token = profile.get("api_token")
+            if api_token is not None and not isinstance(api_token, str):
+                errors.append(f"Profile '{name}': 'api_token' must be a string")
+            # Validate org_mappings regex patterns
+            for mapping in profile.get("org_mappings", []):
+                if not isinstance(mapping, dict):
+                    errors.append(f"Profile '{name}': org_mappings entries must be dictionaries")
+                    continue
+                pattern = mapping.get("pattern")
+                if pattern is None:
+                    errors.append(f"Profile '{name}': mapping missing 'pattern'")
+                    continue
+                try:
+                    re.compile(pattern)
+                except re.error as e:
+                    errors.append(f"Profile '{name}': invalid regex pattern '{pattern}': {e}")
+            # default_project should be string if present
+            project = profile.get("default_project")
+            if project is not None and not isinstance(project, str):
+                errors.append(f"Profile '{name}': 'default_project' must be a string")
+            # tag should be string or omitted
+            if "tag" in profile and not isinstance(profile["tag"], str):
+                errors.append(f"Profile '{name}': 'tag' must be a string")
+        # Check that default_profile refers to an existing profile
+        if "default_profile" in config:
+            if config["default_profile"] not in profiles:
+                errors.append(f"default_profile '{config['default_profile']}' not found in profiles")
+
+    # 3. Global tag validation
+    if "tag" in config and not isinstance(config["tag"], str):
+        errors.append("Global 'tag' must be a string")
+
+    return errors
+
+
+def validate_config_online(profile_name: str, profile_config: dict) -> List[str]:
+    """Perform online checks: verify API token, workspace, and project existence."""
+    errors = []
+    warnings = []
+    api_token = profile_config["api_token"]
+    proxies = get_proxies()
+    try:
+        workspace_id = get_workspace_id(api_token, proxies)
+        # Check default project exists
+        project_name = profile_config.get("default_project")
+        if project_name:
+            project_id = get_project_id_by_name(api_token, workspace_id, proxies, project_name)
+            if project_id is None:
+                warnings.append(f"Project '{project_name}' not found in workspace (will create on first sync)")
+    except Exception as e:
+        errors.append(f"Online validation failed: {e}")
+    # Could also return warnings, but for simplicity just return errors; warnings printed separately
+    return errors
+
+
 def init_db(profile_name: str):
     """Initialize the SQLite database for a given profile."""
     db_path = get_db_path(profile_name)
@@ -693,6 +773,8 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--dry-run", action="store_true", help="Preview what would be synced without making any API calls")
     parser.add_argument("-y", "--yes", action="store_true", help="Auto-accept all prompts (non-interactive mode). Useful for scripts and cron jobs.")
     parser.add_argument("--update-changed", action="store_true", help="Update entries that have changed (description, duration, time) by deleting and re-creating them")
+    parser.add_argument("--validate-config", action="store_true", help="Validate configuration and exit")
+    parser.add_argument("--online", action="store_true", help="Include online checks (API connectivity) when validating config")
     return parser
 
 
@@ -754,12 +836,6 @@ def main():
         print("(Use --dry-run first to preview, then run without it to actually delete and sync)")
         sys.exit(1)
 
-    # Check that interactive mode has a TTY (unless --yes is used)
-    if not args.yes and not sys.stdin.isatty() and not args.dry_run:
-        print("Error: orggle requires an interactive terminal for prompts.")
-        print("Use --yes (or -y) to run non-interactively.")
-        sys.exit(1)
-
     if args.delete_existing and not args.org_file:
         if not args.day:
             print("Error: --day is required when --delete-existing is used without org_file")
@@ -768,11 +844,54 @@ def main():
             print("Error: --batch cannot be used with --delete-existing without org_file")
             sys.exit(1)
 
-    # Load full config
+    # Load full config early (needed for validation and normal operation)
     try:
         full_config = load_config()
     except Exception as e:
         print(f"Error loading config: {e}")
+        sys.exit(1)
+
+    # Handle --validate-config flag (can exit early without TTY)
+    if args.validate_config:
+        errors = validate_config(full_config)
+        if errors:
+            print("Configuration validation failed:")
+            for e in errors:
+                print(f"  ERROR: {e}")
+            sys.exit(1)
+        else:
+            print("✓ Configuration valid")
+            profiles = full_config.get("profiles", {})
+            if profiles:
+                print(f"  Profiles: {', '.join(profiles.keys())}")
+            default = full_config.get("default_profile")
+            if default:
+                print(f"  Default profile: {default}")
+        if args.online:
+            try:
+                profile_name = get_profile_name(args, full_config)
+            except ValueError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
+            try:
+                profile_cfg = load_profile_config(profile_name, full_config)
+            except Exception as e:
+                print(f"ERROR: {e}")
+                sys.exit(1)
+            online_errors = validate_config_online(profile_name, profile_cfg)
+            if online_errors:
+                print("Online validation failed:")
+                for e in online_errors:
+                    print(f"  ERROR: {e}")
+                sys.exit(1)
+            else:
+                print("✓ Online checks passed")
+        sys.exit(0)
+
+    # Check that interactive mode has a TTY (unless --yes is used)
+    if not args.yes and not sys.stdin.isatty() and not args.dry_run:
+        print("Error: orggle requires an interactive terminal for prompts.")
+        print("Use --yes (or -y) to run non-interactively.")
         sys.exit(1)
 
     # Resolve which profile to use

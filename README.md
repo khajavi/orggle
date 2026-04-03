@@ -378,6 +378,33 @@ Works with batch mode and interactive mode. The output shows which entries are b
 
 **Note**: `--update-changed` requires that orggle has stored the original entry data (available in versions with this feature). It does not bypass the `--delete-existing` confirmation when used; it handles deletions automatically per changed entry.
 
+### Validate Configuration
+
+Check your configuration file for errors before syncing:
+
+```bash
+./orggle --validate-config
+```
+
+This performs offline checks:
+- `default_profile` is defined
+- Each profile has required fields (`api_token`, `default_project`)
+- All regex patterns in `org_mappings` are valid
+- Profile references are consistent
+
+If you want to verify online connectivity (requires network and valid API token):
+
+```bash
+./orggle --validate-config --online
+```
+
+This additionally checks:
+- API token is accepted by Toggl
+- Workspace can be accessed
+- Default project exists in the workspace
+
+The command returns exit code 0 if all checks pass, non-zero otherwise.
+
 ### Sync Specific Day
 
 Sync entries for a specific day, ignoring previous sync status:

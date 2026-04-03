@@ -18,7 +18,7 @@ This directory contains planned improvements, features, and bug fixes for orggle
 | [B-003](B-003-description-update-gap.md) | Fix Description Update Gap | Tier 1 | M | Planned |
 | [B-004](B-004-auto-accept-flag.md) | Add `--yes` Flag | Tier 1 | XS | Completed |
 | [B-005](B-005-fix-mapping-logic.md) | Fix Description Mapping Logic | Tier 2 | S | Completed |
-| [B-006](B-006-config-validate-command.md) | Config Validation Command | Tier 2 | M | Planned |
+| [B-006](B-006-config-validate-command.md) | Config Validation Command | Tier 2 | M | Completed |
 | [B-007](B-007-progress-indicator.md) | Progress Indicators | Tier 2 | S | Planned |
 | [B-008](B-008-timezone-handling.md) | Timezone Handling | Tier 2 | M | Planned |
 | [B-009](B-009-multiple-tags-support.md) | Multiple Tags Support | Tier 2 | S | Planned |

@@ -427,6 +427,82 @@ def test_mapping_does_not_leak_across_headings():
         os.unlink(temp_path)
 
 
+def test_validate_config():
+    """Test validate_config function with various configs."""
+    # Valid minimal config
+    valid_config = {
+        "default_profile": "default",
+        "profiles": {
+            "default": {
+                "api_token": "dummy_token",
+                "default_project": "Test"
+            }
+        }
+    }
+    errors = orggle.validate_config(valid_config)
+    assert len(errors) == 0, f"Valid config should have no errors, got: {errors}"
+
+    # Missing default_profile
+    config_no_default = {"profiles": {}}
+    errors = orggle.validate_config(config_no_default)
+    assert any("default_profile" in e for e in errors)
+
+    # Missing profiles
+    config_no_profiles = {"default_profile": "default"}
+    errors = orggle.validate_config(config_no_profiles)
+    assert any("profiles" in e for e in errors)
+
+    # Profile missing required fields
+    config_missing_fields = {
+        "default_profile": "work",
+        "profiles": {
+            "work": {
+                "api_token": ""
+            }
+        }
+    }
+    errors = orggle.validate_config(config_missing_fields)
+    assert any("missing required field" in e and "default_project" in e for e in errors)
+
+    # Invalid regex pattern
+    config_bad_regex = {
+        "default_profile": "default",
+        "profiles": {
+            "default": {
+                "api_token": "token",
+                "default_project": "Test",
+                "org_mappings": [
+                    {"pattern": "*invalid[", "description": "Bad"}
+                ]
+            }
+        }
+    }
+    errors = orggle.validate_config(config_bad_regex)
+    assert any("invalid regex pattern" in e for e in errors)
+
+    # default_profile refers to non-existent profile
+    config_bad_default = {
+        "default_profile": "nonexistent",
+        "profiles": {
+            "default": {"api_token": "t", "default_project": "p"}
+        }
+    }
+    errors = orggle.validate_config(config_bad_default)
+    assert any("not found in profiles" in e for e in errors)
+
+    # Global tag non-string
+    config_bad_tag = {
+        "default_profile": "default",
+        "tag": 123,
+        "profiles": {"default": {"api_token": "t", "default_project": "p"}}
+    }
+    errors = orggle.validate_config(config_bad_tag)
+    assert any("Global 'tag' must be a string" in e for e in errors)
+
+
+# Integration test for --validate-config is temporarily disabled due to TTY/subprocess complexities.
+# Will be re-enabled in future after investigati
+
 def test_confirm_delete_with_mock():
     """Test confirm_delete returns True only for exact confirmation string."""
     try:
@@ -574,6 +650,7 @@ if __name__ == "__main__":
         test_yes_with_dry_run,
         test_update_changed_dry_run,
         test_mapping_does_not_leak_across_headings,
+        test_validate_config,
         test_confirm_delete_requires_tty,
         test_confirm_delete_with_mock,
     ]

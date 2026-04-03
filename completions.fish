@@ -52,6 +52,10 @@ complete -c orggle -s y -l yes -f -d "Auto-accept all prompts (non-interactive m
 # Update-changed flag (smart updates)
 complete -c orggle -l update-changed -f -d "Update entries that have changed (description, duration, time) by deleting and re-creating them"
 
+# Validate config flag
+complete -c orggle -l validate-config -f -d "Validate configuration and exit"
+complete -c orggle -l online -f -d "Include online checks (API connectivity) when validating config"
+
 # Combination help: --day with --delete-existing
 complete -c orggle -n "__fish_seen_subcommand_from --day" -l delete-existing -f -d "Delete existing entries for this day before syncing"
 
