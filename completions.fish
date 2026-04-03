@@ -34,21 +34,15 @@ complete -c orggle -l batch -x -f -d "Batch mode: 'daily' syncs all entries grou
 # Day option (YYYY-MM-DD format) with date suggestions
 function __fish_orggle_dates
     # Generate dates: today ± 7 days (15 days total)
-    # Try GNU date syntax first (Linux)
-    if date -d "yesterday" +%Y-%m-%d 2>/dev/null
-        set -l start (date -d "-7 days" +%Y-%m-%d)
-        for i in (seq 0 14)
-            date -d "$start + $i days" +%Y-%m-%d
-        end
-    # Try BSD date syntax (macOS)
-    else if date -v-1d +%Y-%m-%d 2>/dev/null
-        set -l start (date -v-7d +%Y-%m-%d)
-        for i in (seq 0 14)
-            date -v+${i}d $start +%Y-%m-%d
-        end
-    else
-        # Fallback: just output today
+    # Uses GNU date syntax (Linux, NixOS)
+    set -l start (date -d "-7 days" +%Y-%m-%d 2>/dev/null)
+    if test $status -ne 0
+        # Fallback if GNU date not available: just output today
         date +%Y-%m-%d 2>/dev/null
+        return
+    end
+    for i in (seq 0 14)
+        date -d "$start + $i days" +%Y-%m-%d
     end
 end
 
