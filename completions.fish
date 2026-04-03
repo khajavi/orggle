@@ -33,28 +33,21 @@ complete -c orggle -l batch -x -f -d "Batch mode: 'daily' syncs all entries grou
 
 # Day option (YYYY-MM-DD format) with date suggestions
 function __fish_orggle_dates
-    # Generate dates: today ± 7 days
-    set -l start (date -d "-7 days" +%Y-%m-%d 2>/dev/null)
-    if test $status -ne 0
-        # macOS doesn't support -d with date; use -v-7d
-        set start (date -v-7d +%Y-%m-%d 2>/dev/null)
-    end
-    set -l end (date -d "+7 days" +%Y-%m-%d 2>/dev/null)
-    if test $status -ne 0
-        set end (date -v+7d +%Y-%m-%d 2>/dev/null)
-    end
-    # If we have valid dates, generate range
-    if set -q start[1]
-        # Count days between start and end
+    # Generate dates: today ± 7 days (15 days total)
+    # Try GNU date syntax first (Linux)
+    if date -d "yesterday" +%Y-%m-%d 2>/dev/null
+        set -l start (date -d "-7 days" +%Y-%m-%d)
         for i (seq 0 14)
-            if date -d "$start + $i days" +%Y-%m-%d 2>/dev/null
-                date -d "$start + $i days" +%Y-%m-%d
-            else if date -v+${i}d $start +%Y-%m-%d 2>/dev/null
-                date -v+${i}d $start +%Y-%m-%d
-            end
+            date -d "$start + $i days" +%Y-%m-%d
+        end
+    # Try BSD date syntax (macOS)
+    else if date -v-1d +%Y-%m-%d 2>/dev/null
+        set -l start (date -v-7d +%Y-%m-%d)
+        for i (seq 0 14)
+            date -v+${i}d $start +%Y-%m-%d
         end
     else
-        # Fallback: just suggest today
+        # Fallback: just output today
         date +%Y-%m-%d 2>/dev/null
     end
 end
