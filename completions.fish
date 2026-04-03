@@ -31,14 +31,41 @@ complete -c orggle -l profile -x -d "Toggl profile to use (default from config)"
 # Batch mode option
 complete -c orggle -l batch -x -f -d "Batch mode: 'daily' syncs all entries grouped by day" -a "daily"
 
-# Day option (YYYY-MM-DD format)
-complete -c orggle -l day -x -d "Sync specific day (format: YYYY-MM-DD). Ignores previous sync status"
+# Day option (YYYY-MM-DD format) with date suggestions
+function __fish_orggle_dates
+    # Generate dates: today ± 7 days
+    set -l start (date -d "-7 days" +%Y-%m-%d 2>/dev/null)
+    if test $status -ne 0
+        # macOS doesn't support -d with date; use -v-7d
+        set start (date -v-7d +%Y-%m-%d 2>/dev/null)
+    end
+    set -l end (date -d "+7 days" +%Y-%m-%d 2>/dev/null)
+    if test $status -ne 0
+        set end (date -v+7d +%Y-%m-%d 2>/dev/null)
+    end
+    # If we have valid dates, generate range
+    if set -q start[1]
+        # Count days between start and end
+        for i (seq 0 14)
+            if date -d "$start + $i days" +%Y-%m-%d 2>/dev/null
+                date -d "$start + $i days" +%Y-%m-%d
+            else if date -v+${i}d $start +%Y-%m-%d 2>/dev/null
+                date -v+${i}d $start +%Y-%m-%d
+            end
+        end
+    else
+        # Fallback: just suggest today
+        date +%Y-%m-%d 2>/dev/null
+    end
+end
 
-# From option (YYYY-MM-DD format, inclusive)
-complete -c orggle -l from -x -d "Start date for range (YYYY-MM-DD, inclusive)"
+complete -c orggle -l day -x -d "Sync specific day (format: YYYY-MM-DD). Ignores previous sync status" -a "(__fish_orggle_dates)"
 
-# To option (YYYY-MM-DD format, inclusive)
-complete -c orggle -l to -x -d "End date for range (YYYY-MM-DD, inclusive)"
+# From option (YYYY-MM-DD format, inclusive) with date completion
+complete -c orggle -l from -x -d "Start date for range (YYYY-MM-DD, inclusive)" -a "(__fish_orggle_dates)"
+
+# To option (YYYY-MM-DD format, inclusive) with date completion
+complete -c orggle -l to -x -d "End date for range (YYYY-MM-DD, inclusive)" -a "(__fish_orggle_dates)"
 
 # Delete existing flag
 complete -c orggle -l delete-existing -f -d "Delete existing Toggl entries for specified day/range before syncing"
