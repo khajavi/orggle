@@ -32,7 +32,24 @@ complete -c orggle -l profile -x -d "Toggl profile to use (default from config)"
 complete -c orggle -l batch -x -f -d "Batch mode: 'daily' syncs all entries grouped by day" -a "daily"
 
 # Day option (YYYY-MM-DD format) with date suggestions
+# Cache dates for the session to avoid regenerating on every tab press
 function __fish_orggle_dates
+    # Use cache if available and still valid (within 24 hours)
+    if set -q __fish_orggle_dates_cache[1] && set -q __fish_orggle_dates_cache_time
+        set -l now (date +%s 2>/dev/null)
+        if test $status -eq 0
+            # Cache valid for 24 hours (86400 seconds)
+            if test $now -lt (math $__fish_orggle_dates_cache_time + 86400)
+                echo $__fish_orggle_dates_cache
+                return
+            end
+        else
+            # Can't get current time, use cache anyway
+            echo $__fish_orggle_dates_cache
+            return
+        end
+    end
+
     # Generate dates from 5 years ago to 1 year in future (covers typical historical sync)
     # Uses GNU date syntax (Linux, NixOS)
     set -l start (date -d "5 years ago" +%Y-%m-%d 2>/dev/null)
@@ -41,10 +58,21 @@ function __fish_orggle_dates
         date +%Y-%m-%d 2>/dev/null
         return
     end
-    # Generate about 5*365 + 365 = 2190 days (5 years + 1 year)
+
+    # Build list efficiently
+    set -l dates
     for i in (seq 0 2190)
-        date -d "$start + $i days" +%Y-%m-%d 2>/dev/null
+        set -l d (date -d "$start + $i days" +%Y-%m-%d 2>/dev/null)
+        if test $status -eq 0
+            set dates $dates $d
+        end
     end
+
+    # Cache in global variable for this session
+    set -g __fish_orggle_dates_cache $dates
+    set -g __fish_orggle_dates_cache_time (date +%s 2>/dev/null; or echo 0)
+
+    echo $dates
 end
 
 complete -c orggle -l day -x -d "Sync specific day (format: YYYY-MM-DD). Ignores previous sync status" -a "(__fish_orggle_dates)"
