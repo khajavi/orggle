@@ -726,6 +726,17 @@ def validate_date_range(from_date: str, to_date: str) -> bool:
     return from_dt <= to_dt
 
 
+def format_duration(seconds: int) -> str:
+    """Format duration in seconds to 'Xh Ym' or 'Xm'."""
+    total_minutes = seconds // 60
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    else:
+        return f"{minutes}m"
+
+
 def filter_entries_by_date_range(entries: List[dict], from_date: str = None, to_date: str = None) -> List[dict]:
     """
     Filter entries to include only those within the specified date range.
@@ -1143,6 +1154,8 @@ def main():
 
     synced = 0
     skipped = 0
+    failed = 0
+    total_duration_seconds = 0
     quit_flag = False
 
     if args.batch == "daily":
@@ -1172,7 +1185,7 @@ def main():
                         print(f"  Updating entry {old_id}{change_desc}...")
                         if not delete_entry(api_token, workspace_id, proxies, old_id):
                             print(f"  ✗ Failed to delete old entry {old_id}, skipping")
-                            skipped += 1
+                            failed += 1
                             continue
                     # Create new entry
                     url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id, toggl_tag)
@@ -1182,8 +1195,9 @@ def main():
                         mark_published(entry_hash, toggl_id, profile_name, entry)
                         print(f"  ✓ Synced: {url}")
                         synced += 1
+                        total_duration_seconds += entry['duration']
                     else:
-                        skipped += 1
+                        failed += 1
                         print("  ✗ Failed to sync")
                 print()
     else:
@@ -1209,7 +1223,7 @@ def main():
                     print(f"  Updating entry {old_id}{change_desc}...")
                     if not delete_entry(api_token, workspace_id, proxies, old_id):
                         print(f"  ✗ Failed to delete old entry {old_id}, skipping")
-                        skipped += 1
+                        failed += 1
                         continue
                 # Create new entry
                 url = create_toggl_entry(entry, api_token, workspace_id, proxies, project_id, toggl_tag)
@@ -1219,14 +1233,19 @@ def main():
                     mark_published(entry_hash, toggl_id, profile_name, entry)
                     print(f"  ✓ Synced: {url}\n")
                     synced += 1
+                    total_duration_seconds += entry['duration']
                 else:
-                    skipped += 1
+                    failed += 1
                     print("  ✗ Failed to sync\n")
 
-    print("-" * 40)
+    print("\n" + "=" * 40)
     if quit_flag:
         print("Sync interrupted.")
-    print(f"Synced: {synced}, Skipped: {skipped}")
+    print("Summary:")
+    print(f"  ✓ Synced:   {synced:3d} entries ({format_duration(total_duration_seconds)})")
+    print(f"  ⊘ Skipped:  {skipped:3d} entries")
+    print(f"  ✗ Failed:   {failed:3d} entries")
+    print("=" * 40)
 
 
 if __name__ == "__main__":
