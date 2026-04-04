@@ -22,7 +22,7 @@ This directory contains planned improvements, features, and bug fixes for orggle
 | [B-007](B-007-progress-indicator.md) | Progress Indicators | Tier 2 | S | Planned |
 | [B-008](B-008-timezone-handling.md) | Timezone Handling | Tier 2 | M | Planned |
 | [B-009](B-009-multiple-tags-support.md) | Multiple Tags Support | Tier 2 | S | Planned |
-| [B-010](B-010-summary-stats.md) | Summary Statistics | Tier 2 | XS | Planned |
+| [B-010](B-010-summary-stats.md) | Summary Statistics | Tier 2 | XS | Completed |
 | [B-011](B-011-exclude-regex-filter.md) | Exclude Regex Filter | Tier 3 | S | Planned |
 | [B-012](B-012-output-formats.md) | Output Formats (JSON/Quiet) | Tier 3 | S | Planned |
 | [B-013](B-013-since-until-aliases.md) | Since/Until Aliases | Tier 3 | XS | Planned |
